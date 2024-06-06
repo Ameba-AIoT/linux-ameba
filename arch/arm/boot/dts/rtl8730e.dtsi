@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for RTL8730E chip
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/dts-v1/;
+
+#include "rtl8730e-a32.dtsi"
+#include "rtl8730e-ocp.dtsi"
+
+/ {
+	model = "Ameba Platform";
+	compatible = "realtek,ameba";
+};
+
+&rcc {
+	assigned-clocks = <&rcc RTK_CKSL_AC>, <&rcc RTK_CKSL_SPORT0>, <&rcc RTK_CKSL_SPORT1>, <&rcc RTK_CKSL_SPORT2>, <&rcc RTK_CKSL_SPORT3>, <&rcc RTK_CKSL_TIM9>;
+	assigned-clock-parents = <&rcc RTK_CKE_XTAL_GRP1>, <&rcc RTK_CKSL_AC>, <&rcc RTK_CKSL_AC>, <&rcc RTK_CKSL_AC>, <&rcc RTK_CKSL_AC>, <&clk_i2s_pll2>;
+};

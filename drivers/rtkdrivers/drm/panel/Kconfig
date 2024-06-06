@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config AMEBA_PANEL
+	tristate "DRM support for Ameba display panels"
+	depends on OF
+	depends on DRM_DSI_RTK_AMEBA
+	select DRM_PANEL
+	default n
+	help
+	  DRM driver for the Ameba Display Panels
+

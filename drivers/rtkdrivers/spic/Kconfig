@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# SPIC driver configuration
+#
+config SPIC_RTK_AMEBA_RXI312
+	bool "RXI312 SPI controller driver"
+	help
+	  This is the driver for the REALTEK RXI312 SPI controller.
+
+choice
+	prompt "RXI312 mode"
+	depends on SPIC_RTK_AMEBA_RXI312
+
+config SPI_RTS_QUADSPI_IRQ
+	bool "RXI312 interrupt mode"
+
+config SPI_RTS_QUADSPI_POLLING
+	bool "RXI312 polling mode"
+
+endchoice

@@ -1,0 +1,4 @@
+config TOUCHSCREEN_RTK_AMEBA
+	tristate "CST328 I2C touchscreen"
+	depends on I2C
+	depends on GPIOLIB || COMPILE_TEST

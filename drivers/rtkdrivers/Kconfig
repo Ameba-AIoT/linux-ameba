@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: GPL-2.0
+menuconfig RTK_DRIVERS
+    tristate "Drivers for Realtek"
+
+
+if RTK_DRIVERS
+
+source "drivers/rtkdrivers/adc/Kconfig"
+
+source "drivers/rtkdrivers/captouch/Kconfig"
+
+if NETDEVICES
+if CFG80211
+source "drivers/rtkdrivers/net/wireless/cfg80211_fullmac/Kconfig"
+endif
+endif
+
+source "drivers/rtkdrivers/clocksource/Kconfig"
+
+source "drivers/rtkdrivers/cpufreq/Kconfig"
+
+source "drivers/rtkdrivers/crypto/Kconfig"
+
+source "drivers/rtkdrivers/touchscreen/Kconfig"
+
+source "drivers/rtkdrivers/dma/Kconfig"
+
+source "drivers/rtkdrivers/drm/Kconfig"
+
+source "drivers/rtkdrivers/gpio/Kconfig"
+
+source "drivers/rtkdrivers/ipc/Kconfig"
+
+if NETDEVICES
+endif
+
+source "drivers/rtkdrivers/ir/Kconfig"
+
+source "drivers/rtkdrivers/i2c/Kconfig"
+
+source "drivers/rtkdrivers/km4_console/Kconfig"
+
+source "drivers/rtkdrivers/ledc/Kconfig"
+
+source "drivers/rtkdrivers/misc/Kconfig"
+
+source "drivers/rtkdrivers/mrdump/Kconfig"
+
+source "drivers/rtkdrivers/otp/Kconfig"
+
+source "drivers/rtkdrivers/otp_ipc/Kconfig"
+
+source "drivers/rtkdrivers/pinctrl/Kconfig"
+
+source "drivers/rtkdrivers/pwm/Kconfig"
+
+source "drivers/rtkdrivers/clk/Kconfig"
+
+source "drivers/rtkdrivers/rtc/Kconfig"
+
+source "drivers/rtkdrivers/spic/Kconfig"
+
+source "drivers/rtkdrivers/mmc/Kconfig"
+
+source "drivers/rtkdrivers/spi/Kconfig"
+
+source "drivers/rtkdrivers/thermal/Kconfig"
+
+source "drivers/rtkdrivers/mfd_timer/Kconfig"
+
+source "drivers/rtkdrivers/tty_serial/Kconfig"
+
+source "drivers/rtkdrivers/usb_phy/Kconfig"
+
+source "drivers/rtkdrivers/watchdog/Kconfig"
+
+
+source "drivers/rtkdrivers/bluetooth/Kconfig"
+
+endif

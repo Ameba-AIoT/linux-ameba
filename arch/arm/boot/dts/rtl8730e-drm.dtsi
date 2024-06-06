@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for DRM
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+#include <dt-bindings/realtek/clock/realtek-ameba-clock.h>
+
+ / {
+	ocp {
+		drm:drm@0x400D8000 {
+			compatible = "realtek,ameba-drm";
+			reg = <0x400D8000 0xE0>;
+			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc RTK_CKE_LCDCMIPI>;
+			memory-region = <&mem_drm_reserved>;
+			status = "disabled";
+
+			port {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				dsi_out: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&dsi_in>;
+				};
+				panel_out: endpoint@1 {
+					reg = <1>;
+					remote-endpoint = <&panel_in>;
+				};
+			};
+		};
+
+		dsi: dsi@0x400EA000 {
+			compatible = "realtek,ameba-dsi";
+			reg = <0x400EA000 0xC10>,
+			      <0x4200825C 0x04>;
+			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc RTK_CKE_HPERI>;
+			rtk,lcdc-vo-clock = <&rcc>;
+			status = "disabled";
+
+			// 0 for input port
+			port {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				dsi_in: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&dsi_out>;
+				};
+			};			
+		};
+
+		rtkpanel: rtkpanel {
+			status = "okay";
+			port {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				panel_in: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&panel_out>;
+				};
+			};
+		};
+	};
+};

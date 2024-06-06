@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for 128MB SPI NAND flash
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/ {
+	ocp {
+		spic: spi@44000000 {
+			compatible = "realtek,rxi312-nand";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			bus_num = <2>;
+			reg = <0x44000000 0x200>;
+			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+			spi-max-frequency = <100000000>;
+
+			flash0: flash@0 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "spi-nand";
+				spi-max-frequency = <100000000>;
+				reg = <0>;
+
+				partitions {
+					compatible = "fixed-partitions";
+					#address-cells = <1>;
+					#size-cells = <1>;
+					partition@0 {
+						label = "Miscellaneous Information";
+						reg = <0x620000 0x40000>;
+					};
+					partition@1 {
+						label = "Miscellaneous Information Back-up";
+						reg = <0x660000 0x40000>;
+					};
+					partition@2 {
+						label = "VBMeta Data A";
+						reg = <0x6A0000 0x40000>;
+						read-only;
+					};
+					partition@3 {
+						label = "VBMeta Data B";
+						reg = <0x6E0000 0x40000>;
+						read-only;
+					};
+					partition@4 {
+						label = "Device Tree Blob A";
+						reg = <0x720000 0x60000>;
+						read-only;
+					};
+					partition@5 {
+						label = "Device Tree Blob B";
+						reg = <0x780000 0x60000>;
+						read-only;
+					};
+					partition@6 {
+						label = "Kernel Image A";
+						reg = <0x7E0000 0xA00000>;
+						read-only;
+					};
+					partition@7 {
+						label = "Kernel Image B";
+						reg = <0x11E0000 0xA00000>;
+						read-only;
+					};
+					partition@8 {
+						label = "Rootfs Image A";
+						reg = <0x1BE0000 0x3C00000>;
+						read-only;
+					};
+					partition@9 {
+						label = "Userdata Area";
+						reg = <0x57E0000 0x2820000>;
+					};
+				};
+			};
+		};
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,1500000 earlycon psci=enable ubi.mtd=8 ubi.block=0,0 root=/dev/ubiblock0_0 rootfstype=squashfs,ubifs ubi.mtd=9";
+		stdout-path = &loguart;
+	};
+
+};

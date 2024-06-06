@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-2.0-only
+menuconfig SND_SOC_REALTEK
+	tristate "Realtek ALSA ASoC Driver"
+	---help---
+	  Say Y or M if you want to add support for codecs attached to
+	  the Realtek SoCs' Audio interfaces. You will also need to
+	  select the audio interfaces to support below.
+
+if SND_SOC_REALTEK
+
+config SND_SOC_SPORT_RTK_AMEBA
+	tristate "Realtek Ameba Sport interface support"
+
+
+config SND_SOC_DMA_RTK_AMEBA
+        tristate "Realtek Ameba DMA interface support"
+
+config SND_SOC_RTK_AMEBA
+	tristate "Realtek Ameba Total Audio Support"
+	select SND_SOC_CODEC_RTK_AMEBA
+	select SND_SOC_SPORT_RTK_AMEBA
+	select SND_SOC_DMA_RTK_AMEBA
+	help
+	Say Y if you want to add support for SoC audio on the AMEBA.
+
+
+
+endif

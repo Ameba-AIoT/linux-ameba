@@ -1,0 +1,4 @@
+config KM4_CONSOLE_AMEBA
+	tristate "KM4 Console"
+	help
+	  Driver for Realtek KM4 Console

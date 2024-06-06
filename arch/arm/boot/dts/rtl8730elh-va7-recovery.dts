@@ -1,0 +1,381 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for recovery
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/realtek/clock/realtek-ameba-clock.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/realtek/pinctrl/realtek-ameba-pinfunc.h>
+
+/ {
+	model = "Ameba Platform";
+	compatible = "realtek,ameba";
+
+	#address-cells = <1>;
+	#size-cells = <1>;
+	interrupt-parent = <&gic>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a32";
+			reg = <0x0>;
+			enable-method = "psci";
+			clock-frequency = <800000000>;
+			clock-latency = <1000000>;
+			clocks = <&rcc RTK_CKE_AP>,
+					<&rcc RTK_CKD_AP>,
+					<&rcc RTK_CKSL_AP>,
+					<&rcc RTK_CLK_AP_PLL>,
+					<&clk_np_syspll 0>;
+			clock-names = "cpu","cpu-div","cpu-mux","ap-pll","np-pll";
+			freq_tab = < 800000 840000 
+						880000 920000 
+						960000 1000000 
+						1040000 1080000 
+						1120000 1160000 
+						1200000 1240000 
+						1280000 1320000 
+						1360000 1400000 >;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a32";
+			reg = <0x1>;
+			enable-method = "psci";
+			clock-frequency = <800000000>;
+			clock-latency = <1000000>;
+			clocks = <&rcc RTK_CKE_AP>,
+					<&rcc RTK_CKD_AP>,
+					<&rcc RTK_CKSL_AP>,
+					<&rcc RTK_CLK_AP_PLL>,
+					<&clk_np_syspll 0>;
+			clock-names = "cpu","cpu-div","cpu-mux","ap-pll","np-pll";
+			freq_tab = < 800000 840000 
+						880000 920000 
+						960000 1000000 
+						1040000 1080000 
+						1120000 1160000 
+						1200000 1240000 
+						1280000 1320000 
+						1360000 1400000 >;
+		};
+
+	};
+
+	gic: gic@A0101000 {
+		compatible = "arm,cortex-a15-gic";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0xA0101000 0x1000>,
+			  <0xA0102000 0x0100>,
+			  <0x41000010 4>,
+			  <0x4200827C 4>;
+	};
+
+	psci {
+		migrate = <0x84000005>;
+		cpu_on = <0x84000003>;
+		cpu_off = <0x84000002>;
+		cpu_suspend = <0x84000001>;
+		method = "smc";
+		compatible = "arm,psci-0.2", "arm,psci";
+	};
+
+	timer {
+		compatible = "arm,armv7-timer";
+		clock-frequency = <50000000>;
+		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+				 <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+				 <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+				 <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>;
+	};
+
+	clocks {
+		clk_xtal_40mhz: crystal_40mhz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <40000000>;
+			clock-output-names = "XTAL_40M";
+		};
+
+		clk_xtal_lps: crystal_lps {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <3125000>;
+			clock-output-names = "XTAL_LPS";
+		};
+
+		clk_xtal_32khz: crystal_32khz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <32000000>;
+			clock-output-names = "XTAL_32K";
+		};
+
+		clk_ext_32khz: ext_32khz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <32000000>;
+			clock-output-names = "EXT_32K";
+		};
+
+		clk_osc_4mhz: oscillator_4mhz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <4000000>;
+			clock-output-names = "OSC_4M";
+		};
+
+		clk_osc_131khz: oscillator_131khz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <131000>;
+			clock-output-names = "OSC_131K";
+		};
+
+		clk_osc_100khz: oscillator_100khz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000>;
+			clock-output-names = "OSC_100K";
+		};
+
+		clk_ddr_pll_533mhz: ddr_pll_533mhz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <533000000>;
+			clock-output-names = "DDR_PLL_533M";
+		};
+
+		clk_np_syspll: np_syspll_600mhz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <600000000>;
+			clock-output-names = "NP_SYSPLL";
+		};
+
+		clk_i2s_pll0: i2s_pll0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <98304000>;
+			clock-output-names = "I2S_PLL0";
+		};
+
+		clk_i2s_pll1: i2s_pll1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <45158400>;
+			clock-output-names = "I2S_PLL1";
+		};
+
+		clk_i2s_pll2: i2s_pll2 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <24576000>;
+			clock-output-names = "I2S_PLL2";
+		};
+	};
+
+	ocp {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		rcc: rcc@41000000 {
+			compatible = "realtek,ameba-rcc";
+			#reset-cells = <1>;
+			#clock-cells = <1>;
+			reg = <0x42008000 0x200>,
+				<0x42008200 0x200>,
+				<0x41000200 0x200>,
+				<0x41000000 0x200>;
+		};
+
+		loguart: dwapb@4200c000 {
+			compatible = "realtek,ameba-loguart";
+			reg = <0x4200c000 0x100>;
+			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+			reg-shift = <2>;
+			reg-io-width = <1>;
+			clock-frequency = <40000000>;
+		};
+
+		pinctrl: pinctrl@42008A00 {
+			compatible = "realtek,ameba-pinctrl";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x42008A00 0x120>;
+
+			sdioh_pins: sdioh@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('B', 27, SDIO)>, // SD_CMD
+						 <REALTEK_PINMUX('B', 28, SDIO)>,     // SD_CLK
+						 <REALTEK_PINMUX('C', 0, SDIO)>,      // SD_CD
+						 <REALTEK_PINMUX('B', 29, SDIO)>,     // SD_D0
+						 <REALTEK_PINMUX('B', 25, SDIO)>,     // SD_D1
+						 <REALTEK_PINMUX('B', 26, SDIO)>,     // SD_D2
+						 <REALTEK_PINMUX('B', 30, SDIO)>;     // SD_D3
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+		};
+
+		sdioh: sdioh@400D0000 {
+			compatible = "realtek,ameba-sdiohost";
+			reg = <0x400D0000 0x8000>;
+			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc RTK_CKE_SDH>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdioh_pins>;
+		};
+
+		// Watchdog4 is non-secure for linux system.
+		watchdog: wdg@410004C0 {
+			compatible = "realtek,ameba-watchdog";
+			reg = <0x410004C0 0x000010>;
+			interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
+			rtk,wdg-index = <4>;
+			rtk,wdg-max-timeout = <5000>; // linux system ping: 2.5s, hardware refresh threshold 5s.
+			rtk,wdg-window-protection = <0xFFFF>; // 0xFFFF means disable, usually: disabled.
+			rtk,wdg-int-trigger-thres = <50>;
+			rtk,wdg-interrupt-mode = <1>; // To avoid error alram, interrupt mode is recommended to open.
+		};
+
+		otp: otp@0 {
+			compatible = "realtek,ameba-otp";
+		};
+
+		usb_phy: usb-phy@41000000 {
+			compatible = "realtek,otg-phy";
+			reg = <0x400B0000 0x20>,
+				<0x41000060 4>,
+				<0x42000100 0x10>,
+				<0x4200825C 4>;
+			#phy-cells = <0>;
+			clocks = <&rcc RTK_CKE_USB>;
+			status = "okay";
+		};
+
+		usb: usb@40080000 {
+			compatible = "realtek,dwc-otg";
+			reg = <0x40080000 0x20000>;
+			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
+			g-rx-fifo-size = <512>;
+			g-np-tx-fifo-size = <256>;
+			g-tx-fifo-size = <128 120>;
+			status = "okay";
+		};
+
+		lsys: lsys@42008000 {
+			compatible = "realtek,ameba-system-ctrl-ls";
+			reg = <0x42008000 0x2000>;
+		};
+
+		spic: spi@44000000 {
+			compatible = "realtek,rxi312-nand";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			bus_num = <2>;
+			reg = <0x44000000 0x200>;
+			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+			spi-max-frequency = <100000000>;
+
+			flash0: flash@0 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "spi-nand";
+				spi-max-frequency = <100000000>;
+				reg = <0>;
+
+				partitions {
+					compatible = "fixed-partitions";
+					#address-cells = <1>;
+					#size-cells = <1>;
+					partition@0 {
+						label = "AP Misc";
+						reg = <0x620000 0x40000>;
+					};
+					partition@1 {
+						label = "AP vbmeta";
+						reg = <0x6A0000 0x40000>;
+					};
+					partition@2 {
+						label = "Device tree blob";
+						reg = <0x720000 0x60000>;
+					};
+					partition@3 {
+						label = "Kernel image";
+						reg = <0x7E0000 0xF00000>;
+					};
+					partition@4 {
+						label = "Squashfs filesystem";
+						reg = <0x1BE0000 0x3C00000>;
+					};
+					partition@5 {
+						label = "ubi/jffs2 filesystem";
+						reg = <0x57E0000 0x2820000>;
+					};
+					partition@6 {
+						label = "KM4 boot slotA";
+						reg = <0x0000000 0x20000>;
+					};
+					partition@7 {
+						label = "KM4 image2 slotA";
+						reg = <0x20000 0x120000>;
+					};
+					partition@8 {
+						label = "AP boot image slotA";
+						reg = <0x140000 0x180000>;
+					};
+					partition@9 {
+						label = "KM4 boot slotB";
+						reg = <0x2C0000 0x40000>;
+					};
+					partition@10 {
+						label = "KM4 image2 slotB";
+						reg = <0x300000 0x120000>;
+					};
+					partition@11 {
+						label = "AP boot image slotB";
+						reg = <0x420000 0x180000>;
+					};
+				};
+			};
+		};
+	};
+
+	firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+	};
+
+	aliases {
+		watchdog0 = "/ocp/wdg0@0x410004C0";
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,1500000 earlycon psci=enable ubi.mtd=5";
+		stdout-path = &loguart;
+	};
+
+	memory {
+		device_type = "memory";
+		// DRAM base address should be 1MB-aligned.
+		reg = <0x60300000 0x7D00000>;  // 128MB -- exclude 3MB secure memory
+	};
+};

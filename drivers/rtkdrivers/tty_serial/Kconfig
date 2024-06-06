@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: GPL-2.0
+
+menuconfig SERIAL_RTK_AMEBA
+	tristate "UART driver"
+	select TTY
+	select SERIAL_CORE
+	help
+		This enables the driver for the onchip UART core for Ameba
+
+if SERIAL_RTK_AMEBA
+
+config SERIAL_RTK_AMEBA_CONSOLE
+	bool "Console on AMEBA serial port"
+	depends on SERIAL_RTK_AMEBA=y
+	select SERIAL_CORE_CONSOLE
+	select SERIAL_EARLYCON
+	help
+		If you have enabled the serial port on the AMEBA CPU
+		you can make it the console by answering Y to this option.
+
+config SERIAL_RTK_AMEBA_GENERIC
+	bool "General UART driver"
+	depends on SERIAL_RTK_AMEBA=y
+	help
+		Ameba general tty serial driver.
+
+endif
+
+

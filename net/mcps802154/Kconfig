@@ -1,0 +1,2 @@
+config MCPS802154
+	tristate "MCPS 802.15.4 Fira Stack"

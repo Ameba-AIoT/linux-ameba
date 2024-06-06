@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config PINCTRL_RTK_AMEBA
+	bool "Pinctrl driver"
+	select PINMUX
+	select GENERIC_PINCONF
+	select GPIOLIB
+	select PINCONF
+	select OF_GPIO
+	select GPIOLIB_IRQCHIP
+	default y

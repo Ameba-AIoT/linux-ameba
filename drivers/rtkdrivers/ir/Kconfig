@@ -1,0 +1,12 @@
+config IR_RTK_AMEBA
+	tristate "IR driver"
+	select INPUT
+	select MEDIA_SUPPORT
+	select RC_CORE
+	select LIRC
+	select BFP_SYSCALL
+	select RC_DECODERS
+	select IR_NEC_DECODER
+	help
+	   Say Y if you want to use the Realtek IR controller available
+	   on Ameba SoCs.

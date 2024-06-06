@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menuconfig CLOCKSOURCE_RTK_AMEBA
+	tristate "Clocksource driver"
+	default y
+	help
+	  Clocksource driver.
+
+if CLOCKSOURCE_RTK_AMEBA
+
+config CLOCKSOURCE_RTK_AMEBA_GENERAL_TIMER
+	bool "General timer"
+	default y
+	select CLKSRC_MMIO
+	select TIMER_OF
+	help
+	  Enables support for the clocksource driver for 
+	  Realtek general timer.
+
+endif

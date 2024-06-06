@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for SPI NOR flash
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/ {
+	ocp {
+		spic: spi@44000000 {
+			compatible = "realtek,rxi312-nor";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			bus_num = <2>;
+			reg = <0x44000000 0x200>;
+			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+			spi-max-frequency = <100000000>;
+
+			flash0: flash@0 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "jedec,spi-nor";
+				spi-max-frequency = <100000000>;
+				reg = <0>;
+
+				partitions {
+					compatible = "fixed-partitions";
+					#address-cells = <1>;
+					#size-cells = <1>;
+
+					partition@0 {
+						label = "AP Misc";
+						reg = <0x620000 0x18000>;
+					};
+					partition@1 {
+						label = "AP Recovery Device tree blob";
+						reg = <0x638000 0x6000>;
+					};
+					partition@2 {
+						label = "AP Recovery Initramfs/kernel image";
+						reg = <0x63E000 0x2FA000>;
+					};
+					partition@3 {
+						label = "Device tree blob";
+						reg = <0x938000 0x8000>;
+					};
+					partition@4 {
+						label = "Kernel image";
+						reg = <0x940000 0x500000>;
+					};
+					partition@5 {
+						label = "Squashfs filesystem";
+						reg = <0xE40000 0xB80000>;
+					};
+					partition@6 {
+						label = "jffs2 filesystem";
+						reg = <0x19C0000 0x640000>;
+					};
+
+				};
+			};
+		};
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,1500000 earlycon psci=enable root=/dev/mtdblock5 rootfstype=squashfs";
+		stdout-path = &loguart;
+	};
+
+};

@@ -1,0 +1,4 @@
+config OTP_IPC_RTK_AMEBA_CDEV
+	tristate "OTP IPC control driver"
+	help
+		This enables the OTP IPC for userspace.

@@ -1,0 +1,158 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek full DTS
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/dts-v1/;
+
+#include "rtl8730e.dtsi"
+#include "rtl8730e-spi-nand-128m.dtsi"
+#include "rtl8730e-drm.dtsi"
+
+/ {
+	memory {
+		device_type = "memory";
+		// DRAM base address should be 1MB-aligned.
+		reg = <0x60300000 0x7D00000>;  // 128MB -- exclude 3MB secure memory
+	};
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		// reserver 32M mem for drm graphics , from 0x61000000 to 0x63000000
+		mem_drm_reserved: drm_buffer@0x61000000 {
+			compatible = "shared-dma-pool";
+			no-map;
+			reg = <0x61000000 0x2000000>;
+			//linux,cma-default;
+		};
+	};
+};
+
+// Configure peripherals, avoid pinmux conflicts.
+
+&codec{
+	pinctrl-names = "default";
+	pinctrl-0 = <&audio_ext_amp_pins>;
+	ext_amp_gpio = <&gpiob 31 0>;
+};
+
+&drm {
+	status = "okay";
+};
+
+&dsi {
+	status = "okay";
+};
+
+&rtkpanel {
+	compatible = "realtek,st7701s";
+	pinctrl-names="default";
+	pinctrl-0 = <&drm_disable_swd_pins>;
+	mipi-gpios = <&gpioa 14 0>;
+	status = "okay";
+};
+
+&ir{
+	pinctrl-names = "default";
+	pinctrl-0 = <&ir_pins>;
+	status = "disabled";
+};
+
+&i2c0{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pins>;
+	status = "disabled";
+};
+
+&i2c1{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "disabled";
+};
+
+&i2c2{
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+	status = "okay";
+
+	rtk_ts@1a {
+		compatible = "realtek,ameba-ts";
+		reg = <0x1a>;
+		ts-reset-gpios = <&gpioa 10 0>;
+		ts-irq-gpios = <&gpioa 9 0>;
+		max-touch-number = <5>;
+		ts-display-coords = <480 800>;
+		status = "disabled";
+	};
+};
+
+&loguart{
+	wakeup-source;
+};
+
+&rtc{
+	wakeup-source;
+};
+
+&sdioh {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdioh_pins>;
+	status = "okay";
+};
+
+&spi0{
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins>;
+	status = "disabled";
+};
+
+&spi1{
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>;
+	status = "disabled";
+};
+
+&sport2 {
+	//pinctrl-names = "default";
+	//pinctrl-0 = <&i2s2_pins>;
+	rtk,sport-multi-io = <1>;
+	rtk,sport-mode = <1>;
+	rtk,sport-mclk-multiplier = <256>;
+};
+
+&sport3 {
+	//pinctrl-names = "default";
+	//pinctrl-0 = <&i2s3_pins>;
+	rtk,sport-multi-io = <1>;
+	rtk,sport-mode = <0>;
+	rtk,sport-mclk-multiplier = <0>;
+};
+
+&timer1{
+	wakeup-source;
+};
+
+&timer2{
+	wakeup-source;
+};
+
+&timer3{
+	wakeup-source;
+};
+
+&timer4{
+	wakeup-source;
+};
+
+&timer5{
+	wakeup-source;
+};
+
+&usb {
+	dr_mode = "otg"; // "host", "peripheral", "otg"
+};

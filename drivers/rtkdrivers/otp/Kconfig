@@ -1,0 +1,4 @@
+menuconfig OTP_RTK_AMEBA
+	tristate "NVMEM OTP driver"
+	help
+	  NVMEM OTP driver

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config ADC_RTK_AMEBA
+	tristate "ADC driver"
+	select IIO
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	select IIO_SYSFS_TRIGGER
+	help
+	 Say yes here to build support for Ameba Analog
+	 to Digital Converter (ADC).
+
+	 This driver can also be built as a module. If so, the module
+	 will be called realtek-adc.

@@ -1,0 +1,5 @@
+config MISC_RTK_AMEBA
+	tristate "Misc ioctl driver"
+	help
+		This enables the miscellaneous ioctl affairs.
+
