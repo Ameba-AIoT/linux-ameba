@@ -724,13 +724,6 @@ int llhw_wifi_nan_cfgvendor_cmd(u16 vendor_cmd, const void *data, int len)
 	dma_unmap_single(pdev, dma_data, len, DMA_TO_DEVICE);
 	return ret;
 }
-
-#if NAN_TODO
-int llhw_cfgvendor_nandow_entry(const void *data, int len)
-{
-
-}
-#endif
 #endif
 
 #ifdef CONFIG_P2P
@@ -877,7 +870,7 @@ int llhw_wifi_del_custom_ie(unsigned char wlan_idx)
 	return ret;
 }
 
-int llhw_wifi_update_custom_ie(u8 *ie, int ie_index)
+int llhw_wifi_update_custom_ie(u8 *ie, int ie_index, u8 type)
 {
 	int ret = 0;
 	u32 param_buf[3];
@@ -891,7 +884,7 @@ int llhw_wifi_update_custom_ie(u8 *ie, int ie_index)
 		dev_err(global_idev.fullmac_dev, "%s: malloc custom ie failed.", __func__);
 		return -ENOMEM;
 	}
-	cus_ie_array->type = ie[0];
+	cus_ie_array->type = type;
 	ie_vir = rtw_malloc(ie[1] + 2, &ie_phy);
 	if (!ie_vir) {
 		dev_err(global_idev.fullmac_dev, "%s: malloc custom sub ie failed.", __func__);
@@ -1010,7 +1003,6 @@ int llhw_wifi_set_country_code(char *cc)
 	int ret = 0;
 	u32 param_buf[1];
 	dma_addr_t phy_addr = 0;
-	char *virt_addr = NULL;
 	struct device *pdev = global_idev.ipc_dev;
 
 	if (strlen(cc) != 2) {
@@ -1018,33 +1010,15 @@ int llhw_wifi_set_country_code(char *cc)
 		return -EINVAL;
 	}
 
-	if ((cc[0] == '0') && (cc[1] == '0')) {
-		virt_addr = kzalloc(2, GFP_KERNEL);
-		if (virt_addr == NULL) {
-			dev_err(global_idev.fullmac_dev, "%s: allocate memory failed!\n", __func__);
-			return -EPERM;
-		}
-		virt_addr[0] = 0xff;
-		virt_addr[1] = 0xff;
-	} else {
-		virt_addr = cc;
-	}
-
-	phy_addr = dma_map_single(pdev, virt_addr, 2, DMA_TO_DEVICE);
+	phy_addr = dma_map_single(pdev, cc, 2, DMA_TO_DEVICE);
 	if (dma_mapping_error(pdev, phy_addr)) {
 		dev_err(global_idev.fullmac_dev, "%s: mapping dma error!\n", __func__);
-		if (virt_addr != cc) {
-			kfree(virt_addr);
-		}
 		return -EPERM;
 	}
 
 	param_buf[0] = (u32)phy_addr;
 	ret = llhw_ipc_send_msg(INIC_API_WIFI_SET_COUNTRY_CODE, param_buf, 1);
 	dma_unmap_single(pdev, phy_addr, 2, DMA_TO_DEVICE);
-	if (virt_addr != cc) {
-		kfree(virt_addr);
-	}
 
 	return ret;
 }
@@ -1086,4 +1060,9 @@ int llhw_wifi_get_country_code(struct country_code_table_t *table)
 	kfree(virt_addr);
 
 	return ret;
+}
+
+int llhw_wifi_driver_is_mp(void)
+{
+	return llhw_ipc_send_msg(INIC_API_WIFI_DRIVE_IS_MP, NULL, 0);
 }
