@@ -31,6 +31,9 @@
 #define MAX_SPORT_IRQ_X 134217727
 #define USING_COUNTER 1
 
+#define PLAY_IN_USE 0x01
+#define RECORD_IN_USE 0x02
+
 struct sport_dai {
 	/* Platform device for this DAI */
 	struct platform_device *pdev;
@@ -81,6 +84,11 @@ struct sport_dai {
 	u32 fifo_num;
 
 	spinlock_t lock;
+
+	/* bit0: play in use, bit1: record in use*/
+	u8 play_record_in_use;
+	/* guard play_record_in_use */
+	struct mutex state_mutex;
 };
 
 #define sport_info(mask,dev, ...)						\
@@ -206,6 +214,15 @@ static int sport_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+
+		mutex_lock(&sport->state_mutex);
+		if (is_playback) {
+			sport->play_record_in_use |= PLAY_IN_USE;
+		} else {
+			sport->play_record_in_use |= RECORD_IN_USE;
+		}
+		mutex_unlock(&sport->state_mutex);
+
 		audio_sp_dma_cmd(sport->addr, true);
 
 		if (is_playback) {
@@ -250,7 +267,16 @@ static int sport_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		audio_sp_dma_cmd(sport->addr, false);
+		mutex_lock(&sport->state_mutex);
+		if (is_playback) {
+			sport->play_record_in_use &= ~PLAY_IN_USE;
+		} else {
+			sport->play_record_in_use &= ~RECORD_IN_USE;
+		}
+		mutex_unlock(&sport->state_mutex);
+
+		if (sport->play_record_in_use & 0x03 == 0)
+			audio_sp_dma_cmd(sport->addr, false);
 
 		if (is_playback) {
 			audio_sp_tx_start(sport->addr, false);
@@ -699,14 +725,17 @@ static int sport_hw_free(struct snd_pcm_substream *substream, struct snd_soc_dai
 	struct sport_dai *sport = snd_soc_dai_get_drvdata(dai);
 
 	sport_info(1,&sport->pdev->dev,"%s",__func__);
-	sport->total_tx_counter = 0;
-	sport->total_rx_counter = 0;
-	sport->total_tx_counter_boundary = 0;
-	sport->total_rx_counter_boundary = 0;
-	sport->irq_tx_count = 0;
-	sport->irq_rx_count = 0;
-	sport->tx_sport_compare_val = 6144;
-	sport->rx_sport_compare_val = 6144;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		sport->total_tx_counter = 0;
+		sport->irq_tx_count = 0;
+		sport->tx_sport_compare_val = 6144;
+		sport->total_tx_counter_boundary = 0;
+	} else {
+		sport->total_rx_counter = 0;
+		sport->total_rx_counter_boundary = 0;
+		sport->irq_rx_count = 0;
+		sport->rx_sport_compare_val = 6144;
+	}
 
 	return 0;
 }
@@ -746,15 +775,17 @@ static void sport_shutdown(struct snd_pcm_substream *substream,
 
 	sport_info(1,&sport->pdev->dev,"%s",__func__);
 
-	clk_disable_unprepare(sport->clock);
-	sport->clock_enabled = 0;
-	//below to be done
-	if (sport->sport_mclk_multiplier != 0 || sport->sport_fixed_mclk_max != 0) {
-		/* disable sport clock */
-		update_fen_cke_sport_status(sport->id, false);
-		if (sport -> sport_debug >= 1)
-			audio_clock_dump();
-		//enable_audio_source_clock(sport->audio_clock_params, sport->id, false);
+	if (sport->play_record_in_use & 0x03 == 0) {
+		clk_disable_unprepare(sport->clock);
+		sport->clock_enabled = 0;
+		//below to be done
+		if (sport->sport_mclk_multiplier != 0 || sport->sport_fixed_mclk_max != 0) {
+			/* disable sport clock */
+			update_fen_cke_sport_status(sport->id, false);
+			if (sport -> sport_debug >= 1)
+				audio_clock_dump();
+			//enable_audio_source_clock(sport->audio_clock_params, sport->id, false);
+		}
 	}
 
 	sport_info(1, &sport->pdev->dev,"close");
@@ -1195,6 +1226,8 @@ static int ameba_sport_probe(struct platform_device *pdev)
 	sport->dai_fmt = SND_SOC_DAIFMT_LEFT_J;
 	sport->fifo_num = 0;
 	sport->clock_enabled = 0;
+	sport->play_record_in_use = 0x00;
+	mutex_init(&sport->state_mutex);
 
 	spin_lock_init(&sport->lock);
 

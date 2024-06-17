@@ -312,7 +312,7 @@ void audio_sp_rx_init(void __iomem * sportx, sport_init_params *SP_RXInitStruct)
 	audio_sp_enable(sportx);
 
 	/* Configure parameters: disable RX, disable TX, AUDIO SPORT mode */
-	audio_sp_tx_start(sportx, false);
+	//audio_sp_tx_start(sportx, false);
 	audio_sp_rx_start(sportx, false);
 
 	/* Configure FIFO0 parameters: data format, word length, channel number, etc */
@@ -477,7 +477,7 @@ void audio_sp_tx_init(void __iomem * sportx, sport_init_params *SP_TXInitStruct)
 
 	/* Configure parameters: disable RX, disable TX, AUDIO SPORT mode */
 	audio_sp_tx_start(sportx, false);
-	audio_sp_rx_start(sportx, false);
+	//audio_sp_rx_start(sportx, false);
 
 	/* Configure FIFO0 parameters: data format, word length, channel number, etc */
 	tmp = readl(sportx + REG_SP_FORMAT);
