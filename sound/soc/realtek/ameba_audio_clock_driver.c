@@ -406,18 +406,12 @@ static int ameba_update_98P304M_input_clock_status(struct audio_clock_component*
 		while (readl(data->addr + REG_PLL_STATE) & PLL_BIT_CKRDY_I2S1);*/
 		tmp = readl(data->addr + REG_PLL_I2SPLL1_CTRL0);
 		tmp &= ~ PLL_BIT_IPLL1_POW_PLL;
-		writel(tmp, data->addr + REG_PLL_I2SPLL1_CTRL0);
-
-		tmp = readl(data->addr + REG_PLL_I2SPLL1_CTRL0);
 		tmp &= ~ PLL_BIT_IPLL1_POW_ERC;
 		writel(tmp, data->addr + REG_PLL_I2SPLL1_CTRL0);
 
 		tmp = readl(data->addr + REG_PLL_AUX_BG);
 		tmp &= ~ (PLL_BIT_POW_BG | PLL_BIT_POW_I | PLL_BIT_POW_MBIAS);
 		writel(tmp, data->addr + REG_PLL_AUX_BG);
-
-		msleep(10);
-		while (readl(data->addr + REG_PLL_STATE) & PLL_BIT_CKRDY_I2S1);
 	}
 	return res;
 }
@@ -498,18 +492,12 @@ static int ameba_update_45P1584_input_clock_status(struct audio_clock_component*
 		while (readl(data->addr + REG_PLL_STATE) & PLL_BIT_CKRDY_I2S2);*/
 		tmp = readl(data->addr + REG_PLL_I2SPLL2_CTRL0);
 		tmp &= ~ PLL_BIT_IPLL2_POW_PLL;
-		writel(tmp, data->addr + REG_PLL_I2SPLL2_CTRL0);
-
-		tmp = readl(data->addr + REG_PLL_I2SPLL2_CTRL0);
 		tmp &= ~ PLL_BIT_IPLL2_POW_ERC;
 		writel(tmp, data->addr + REG_PLL_I2SPLL2_CTRL0);
 
 		tmp = readl(data->addr + REG_PLL_AUX_BG);
 		tmp &= ~ (PLL_BIT_POW_BG | PLL_BIT_POW_I | PLL_BIT_POW_MBIAS);
 		writel(tmp, data->addr + REG_PLL_AUX_BG);
-
-		msleep(10);
-		while (readl(data->addr + REG_PLL_STATE) & PLL_BIT_CKRDY_I2S1);
 	}
 	return res;
 }
@@ -584,18 +572,12 @@ static int ameba_update_24P576_input_clock_status(struct audio_clock_component* 
 		msleep(10);*/
 		tmp = readl(data->addr + REG_PLL_I2SPLL1_CTRL0);
 		tmp &= ~ PLL_BIT_IPLL1_POW_PLL;
-		writel(tmp, data->addr + REG_PLL_I2SPLL1_CTRL0);
-
-		tmp = readl(data->addr + REG_PLL_I2SPLL1_CTRL0);
 		tmp &= ~ PLL_BIT_IPLL1_POW_ERC;
 		writel(tmp, data->addr + REG_PLL_I2SPLL1_CTRL0);
 
 		tmp = readl(data->addr + REG_PLL_AUX_BG);
 		tmp &= ~ (PLL_BIT_POW_BG | PLL_BIT_POW_I | PLL_BIT_POW_MBIAS);
 		writel(tmp, data->addr + REG_PLL_AUX_BG);
-
-		msleep(10);
-		while (readl(data->addr + REG_PLL_STATE) & PLL_BIT_CKRDY_I2S2);
 	}
 	return res;
 }
