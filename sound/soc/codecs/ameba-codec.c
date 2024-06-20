@@ -723,13 +723,11 @@ static int ameba_codec_hw_params(struct snd_pcm_substream *substream,
 			}
 		}
 
-		for (adc_channel = 0; adc_channel< codec_priv->amic_tdm_num; adc_channel++){
+		for (adc_channel = 0; adc_channel< codec_priv->amic_tdm_num; adc_channel++) {
 			if (codec_priv->mic_type == MIC_TYPE_AMIC) {
 			codec_info(1,component->dev,"codec_priv->tdm_amic_numbers[%d] = %d",adc_channel, codec_priv->tdm_amic_numbers[adc_channel]);
 			/*unmute ad channel(AD_CHANNEL_0...) and select AMIC SDM number for the channel(ADC1...)*/
 			audio_codec_mute_adc_input(false, adc_channel, codec_priv->tdm_amic_numbers[adc_channel], codec_priv->digital_addr);
-			/*enable ad channel & it's fifo*/
-			audio_codec_sel_adc_channel(adc_channel, codec_priv->digital_addr);
 
 			audio_codec_set_adc_mode(codec_priv->tdm_amic_numbers[adc_channel], NORMALPOWER, codec_priv->analog_addr);
 
@@ -752,6 +750,11 @@ static int ameba_codec_hw_params(struct snd_pcm_substream *substream,
 				audio_codec_set_adc_mute(adc_channel,false,codec_priv->digital_addr);
 
 			}
+		}
+
+		for (adc_channel = 0; adc_channel< codec_priv->amic_tdm_num; adc_channel++) {
+			/*enable ad channel & it's fifo*/
+			audio_codec_sel_adc_channel(adc_channel, codec_priv->digital_addr);
 		}
 
 	}
@@ -840,6 +843,7 @@ static int ameba_codec_component_probe(struct snd_soc_component *component)
 		gpio_request(codec_priv->gpio_index, NULL);
 		gpio_direction_output(codec_priv->gpio_index, 1);
 		gpio_set_value(codec_priv->gpio_index, 1);
+		gpio_free(codec_priv->gpio_index);
 	}
 
 	return 0;
