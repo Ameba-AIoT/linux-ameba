@@ -156,3 +156,7 @@
 &usb {
 	dr_mode = "otg"; // "host", "peripheral", "otg"
 };
+
+&misc{
+	rtk,ddr-auto-gating-ctrl = <1>;
+};

@@ -22,13 +22,16 @@
 
 #define MISC_CTRL	"misc-ioctl"
 
+#define DDRC_BIT_DYN_SRE ((u32)0x00000001 << 7)
+
 struct rtk_misc_dev {
 	struct device device;
 	struct cdev cdev;
-	void __iomem *base;
 	struct mutex misc_mutex;
 	u32 uuid;
 	int rlv;
+	u32 ddr_auto_gating_ctrl;
+	void __iomem *ddrc_iocr;
 };
 
 struct rtk_misc_dev *mdev;
@@ -39,6 +42,26 @@ static struct proc_dir_entry *misc_proc_dir;
 static struct proc_dir_entry *uuid_proc_ent;
 
 extern int rtk_misc_get_rlv(void);
+
+int rtk_misc_hw_ddrc_autogating(u8 enable)
+{
+	u32 val = 0;
+
+	if (!mdev->ddr_auto_gating_ctrl) {
+		return -ENODEV;
+	}
+
+	if (enable) {
+		val = readl(mdev->ddrc_iocr);
+		val |= DDRC_BIT_DYN_SRE;
+		writel(val, mdev->ddrc_iocr);
+	} else {
+		val = readl(mdev->ddrc_iocr);
+		val &= (~DDRC_BIT_DYN_SRE);
+		writel(val, mdev->ddrc_iocr);
+	}
+	return 0;
+}
 
 /*
 * uuid proc ops
@@ -78,6 +101,12 @@ static long rtk_misc_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 	case RTK_MISC_IOC_UUID:
 		val = mdev->uuid;
 		ret = put_user(val, (__u32 __user *)arg);
+		break;
+	case RTK_MISC_IOC_DDRC_AUTO_GATE:
+		ret = rtk_misc_hw_ddrc_autogating(1);
+		break;
+	case RTK_MISC_IOC_DDRC_DISGATE:
+		ret = rtk_misc_hw_ddrc_autogating(0);
 		break;
 	default:
 		dev_warn(&mdev->device, "Unsupported misc ioctl cmd: 0x%08X\n", cmd);
@@ -153,17 +182,19 @@ int rtk_misc_init(void)
 
 	memset(mdev, 0, sizeof(struct rtk_misc_dev));
 
-	np = of_find_compatible_node(NULL, NULL, "realtek,ameba-system-ctrl-ls");
+	np = of_find_compatible_node(NULL, NULL, "realtek,ameba-misc");
 	if (!np) {
 		pr_err("MISC: Failed to find node\n");
 		goto of_error;
 	}
 
-	mdev->base = of_iomap(np, 0);
-	if (!mdev->base) {
-		pr_err("MISC: Failed to iomap\n");
+	mdev->ddr_auto_gating_ctrl = 0;
+	mdev->ddrc_iocr = of_iomap(np, 0);
+	if (!mdev->ddrc_iocr) {
+		pr_err("MISC: Failed to iomap the reg.\n");
 		goto of_iomap_error;
 	}
+	of_property_read_u32(np, "rtk,ddr-auto-gating-ctrl", &mdev->ddr_auto_gating_ctrl);
 
 	misc_class = class_create(THIS_MODULE, MISC_CTRL);
 
@@ -206,7 +237,7 @@ cdev_error:
 	unregister_chrdev_region(devno, 1);
 chrdev_error:
 	class_destroy(misc_class);
-	iounmap(mdev->base);
+	iounmap(mdev->ddrc_iocr);
 of_iomap_error:
 	of_node_put(np);
 of_error:
@@ -223,7 +254,7 @@ void rtk_misc_exit(void)
 		class_destroy(misc_class);
 		cdev_del(&mdev->cdev);
 		unregister_chrdev_region(mdev->cdev.dev, 1);
-		iounmap(mdev->base);
+		iounmap(mdev->ddrc_iocr);
 		of_node_put(mdev->device.of_node);
 		kfree(mdev);
 		mdev = NULL;

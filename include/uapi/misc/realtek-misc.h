@@ -20,5 +20,8 @@
 
 #define RTK_MISC_IOC_RLV            _IOR(MISC_IOC_MAGIC, 1, __u32)
 #define RTK_MISC_IOC_UUID           _IOR(MISC_IOC_MAGIC, 2, __u32)
+#define RTK_MISC_IOC_DDRC_AUTO_GATE _IOR(MISC_IOC_MAGIC, 3, __u32)
+#define RTK_MISC_IOC_DDRC_DISGATE   _IOR(MISC_IOC_MAGIC, 4, __u32)
+
 
 #endif

@@ -195,8 +195,15 @@
 			compatible = "realtek,ameba-system-ctrl-ls";
 			reg = <0x42008000 0x2000>,
 				<0x42008274 0x4>;
+		};
+
+		misc: misc@41100000 {
+			compatible = "realtek,ameba-misc";
+			reg = <0x41100008 0x4>;
 			nvmem-cells = <&efuse_uuid>;
 			nvmem-cell-names = "uuid";
+			rtk,ddr-auto-gating-ctrl = <0>;
+			status = "okay";
 		};
 
 		btctrl: btctrl@42008000 {
