@@ -62,6 +62,9 @@ struct ameba_priv {
 	u8 tdm_dmic_numbers[MAX_TDM_NUM];
 	unsigned int dai_fmt[MAX_DAI_NUM];
 
+	int dac_channel;
+	int dac_band;
+
 	int gpio_index;
 	bool enable_dac_asrc;
 };
@@ -179,6 +182,163 @@ void dumpRegs(struct device *dev, void __iomem * audio_base_addr,void __iomem * 
 		tmp = readl(audio_base_addr + CODEC_ADC_6_CONTROL_1);
 		codec_info(1, dev, "CODEC_ADC_6_CONTROL_1:%x",tmp);
 	}
+}
+
+static int audio_codec_set_channel_eq_clock(void __iomem *audio_base_addr,
+	int channel, int enable)
+{
+	u32 tmp = readl(audio_base_addr + CODEC_CLOCK_CONTROL_2);
+
+	switch (channel) {
+	case AUD_DAC_L:
+		if (enable == 1)
+			tmp |= AUD_BIT_DA_L_EQ_EN;
+		else
+			tmp &= ~AUD_BIT_DA_L_EQ_EN;
+		break;
+	case AUD_DAC_R:
+		if (enable == 1)
+			tmp |= AUD_BIT_DA_R_EQ_EN;
+		else
+			tmp &= ~AUD_BIT_DA_R_EQ_EN;
+		break;
+	default:
+		break;
+	}
+
+	writel(tmp, audio_base_addr + CODEC_CLOCK_CONTROL_2);
+
+	return 0;
+}
+
+static int audio_codec_get_channel_eq_clock(void __iomem *audio_base_addr,
+	int channel)
+{
+	u32 tmp = readl(audio_base_addr + CODEC_CLOCK_CONTROL_2);
+
+	if (channel == AUD_DAC_L && ((tmp & AUD_BIT_DA_L_EQ_EN) == AUD_BIT_DA_L_EQ_EN))
+		return 1;
+	else if (channel == AUD_DAC_R && ((tmp & AUD_BIT_DA_R_EQ_EN) == AUD_BIT_DA_R_EQ_EN))
+		return 1;
+
+	return 0;
+}
+
+static u32 audio_codec_get_channel_eq_band_mask(int channel, int band)
+{
+	u32 tmp;
+
+	switch (band) {
+	case 0:
+		if (channel == AUD_DAC_L)
+			tmp = AUD_BIT_DAC_L_BIQUAD_EN_0;
+		else
+			tmp = AUD_BIT_DAC_R_BIQUAD_EN_0;
+		break;
+	case 1:
+		if (channel == AUD_DAC_L)
+			tmp = AUD_BIT_DAC_L_BIQUAD_EN_1;
+		else
+			tmp = AUD_BIT_DAC_R_BIQUAD_EN_1;
+		break;
+	case 2:
+		if (channel == AUD_DAC_L)
+			tmp = AUD_BIT_DAC_L_BIQUAD_EN_2;
+		else
+			tmp = AUD_BIT_DAC_R_BIQUAD_EN_2;
+		break;
+	case 3:
+		if (channel == AUD_DAC_L)
+			tmp = AUD_BIT_DAC_L_BIQUAD_EN_3;
+		else
+			tmp = AUD_BIT_DAC_R_BIQUAD_EN_3;
+		break;
+	case 4:
+		if (channel == AUD_DAC_L)
+			tmp = AUD_BIT_DAC_L_BIQUAD_EN_4;
+		else
+			tmp = AUD_BIT_DAC_R_BIQUAD_EN_4;
+		break;
+	case 5:
+		if (channel == AUD_DAC_L)
+			tmp = AUD_BIT_DAC_L_BIQUAD_EN_5;
+		else
+			tmp = AUD_BIT_DAC_R_BIQUAD_EN_5;
+		break;
+	case 6:
+		if (channel == AUD_DAC_L)
+			tmp = AUD_BIT_DAC_L_BIQUAD_EN_6;
+		else
+			tmp = AUD_BIT_DAC_R_BIQUAD_EN_6;
+		break;
+	case 7:
+		if (channel == AUD_DAC_L)
+			tmp = AUD_BIT_DAC_L_BIQUAD_EN_7;
+		else
+			tmp = AUD_BIT_DAC_R_BIQUAD_EN_7;
+		break;
+	case 8:
+		if (channel == AUD_DAC_L)
+			tmp = AUD_BIT_DAC_L_BIQUAD_EN_8;
+		else
+			tmp = AUD_BIT_DAC_R_BIQUAD_EN_8;
+		break;
+	case 9:
+		if (channel == AUD_DAC_L)
+			tmp = AUD_BIT_DAC_L_BIQUAD_EN_9;
+		else
+			tmp = AUD_BIT_DAC_R_BIQUAD_EN_9;
+		break;
+	default:
+		break;
+	}
+
+	return tmp;
+}
+
+static int audio_codec_set_channel_eq_band(void __iomem *audio_base_addr,
+	int channel, int band, int enable)
+{
+	u32 tmp;
+	void __iomem *addr = NULL;
+	u32 band_bit;
+
+	band_bit = audio_codec_get_channel_eq_band_mask(channel, band);
+
+	if (channel == AUD_DAC_L)
+		addr = audio_base_addr + CODEC_DAC_L_EQ_CTRL;
+	else
+		addr = audio_base_addr + CODEC_DAC_R_EQ_CTRL;
+
+	tmp = readl(addr);
+	if (enable == 1) {
+		tmp |= band_bit;
+	} else
+		tmp &= ~band_bit;
+	writel(tmp, addr);
+
+	return 0;
+}
+
+static int audio_codec_get_channel_eq_band(void __iomem *audio_base_addr,
+	int channel, int band)
+{
+	u32 tmp;
+	void __iomem *addr = NULL;
+	u32 band_bit;
+
+	band_bit = audio_codec_get_channel_eq_band_mask(channel, band);
+
+	if (channel == AUD_DAC_L)
+		addr = audio_base_addr + CODEC_DAC_L_EQ_CTRL;
+	else
+		addr = audio_base_addr + CODEC_DAC_R_EQ_CTRL;
+
+	tmp = readl(addr);
+	if ((tmp & band_bit) == band_bit)
+		return 1;
+
+	return 0;
 }
 
 static int alsa_amic_gain_get(struct snd_kcontrol *kcontrol,
@@ -311,6 +471,150 @@ static int alsa_dmic_number_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int alsa_dac_eq_clock_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct ameba_priv *codec_priv = snd_soc_component_get_drvdata(component);
+
+	ucontrol->value.bytes.data[0] = codec_priv->dac_channel;
+	ucontrol->value.bytes.data[1] = audio_codec_get_channel_eq_clock(codec_priv->digital_addr,
+		codec_priv->dac_channel);
+
+	return 0;
+}
+
+static int alsa_dac_eq_clock_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct ameba_priv *codec_priv = snd_soc_component_get_drvdata(component);
+
+	int enable = ucontrol->value.bytes.data[1];
+	codec_priv->dac_channel = ucontrol->value.bytes.data[0];
+
+	audio_codec_set_channel_eq_clock(codec_priv->digital_addr, codec_priv->dac_channel, enable);
+
+	return 0;
+}
+
+static int alsa_dac_eq_coef_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct ameba_priv *codec_priv = snd_soc_component_get_drvdata(component);
+	struct soc_bytes_ext *params = (void *)kcontrol->private_value;
+	int cnt = params->max - 2;
+	void __iomem *addr = NULL;
+	u32 *val;
+	int i;
+
+	ucontrol->value.bytes.data[0] = codec_priv->dac_channel;
+	ucontrol->value.bytes.data[1] = codec_priv->dac_band;
+
+	switch (codec_priv->dac_channel) {
+	case AUD_DAC_L:
+		addr = codec_priv->digital_addr + CODEC_DAC_L_BIQUAD_H0_0;
+		break;
+	case AUD_DAC_R:
+		addr = codec_priv->digital_addr + CODEC_DAC_R_BIQUAD_H0_0;
+		break;
+	default:
+		break;
+	}
+
+	val = (u32 *)(ucontrol->value.bytes.data + 2);
+	for (i = 0; i < cnt / sizeof(u32); i++) {
+		u32 value;
+		void __iomem *band_addr = addr + codec_priv->dac_band * 20; //4 bytes * 5 (H0 B1 B2 A1 A2) for each band
+
+		value = readl(band_addr + i * 4);
+		value = cpu_to_be32(value);
+		memcpy(val + i, &value, sizeof(value));
+	}
+
+	return 0;
+}
+
+static int alsa_dac_eq_coef_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct ameba_priv *codec_priv = snd_soc_component_get_drvdata(component);
+	struct soc_bytes_ext *params = (void *)kcontrol->private_value;
+	void __iomem *addr = NULL;
+	void *data;
+	u32 *val, value;
+	int i, reg;
+	int cnt = params->max - 2;
+
+	codec_priv->dac_channel = ucontrol->value.bytes.data[0];
+	codec_priv->dac_band = ucontrol->value.bytes.data[1];
+
+	switch (codec_priv->dac_channel) {
+	case AUD_DAC_L:
+		addr = codec_priv->digital_addr + CODEC_DAC_L_BIQUAD_H0_0;
+		break;
+	case AUD_DAC_R:
+		addr = codec_priv->digital_addr + CODEC_DAC_R_BIQUAD_H0_0;
+		break;
+	default:
+		break;
+	}
+
+	data = kmemdup(ucontrol->value.bytes.data + 2,
+		cnt, GFP_KERNEL | GFP_DMA);
+	if (!data)
+		return -ENOMEM;
+
+	val = (u32 *)data;
+
+	for (i = 0; i < cnt / sizeof(u32); i++) {
+		void __iomem *band_addr = addr + codec_priv->dac_band * 20; //4 bytes * 5 (H0 B1 B2 A1 A2) for each band
+
+		value = be32_to_cpu(*(val + i));
+		writel(value, band_addr + i * 4);
+
+		codec_info(1, component->dev, "Addr[0x%x] = 0x%08x\n",
+			band_addr + i * 4 - codec_priv->digital_addr, value);
+	}
+
+	kfree(data);
+
+	return 0;
+}
+
+static int alsa_dac_eq_band_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct ameba_priv *codec_priv = snd_soc_component_get_drvdata(component);
+
+	ucontrol->value.bytes.data[0] = codec_priv->dac_channel;
+	ucontrol->value.bytes.data[1] = codec_priv->dac_band;
+	ucontrol->value.bytes.data[2] = audio_codec_get_channel_eq_band(codec_priv->digital_addr,
+		codec_priv->dac_channel, codec_priv->dac_band);
+
+	return 0;
+}
+
+static int alsa_dac_eq_band_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct ameba_priv *codec_priv = snd_soc_component_get_drvdata(component);
+	int state;
+
+	codec_priv->dac_channel = ucontrol->value.bytes.data[0];
+	codec_priv->dac_band = ucontrol->value.bytes.data[1];
+	state = ucontrol->value.bytes.data[2];
+
+	audio_codec_set_channel_eq_band(codec_priv->digital_addr, codec_priv->dac_channel,
+		codec_priv->dac_band, state);
+
+	return 0;
+}
+
 
 static const DECLARE_TLV_DB_SCALE(digital_tlv, -6562, 37, 0);  //min db: -65.625db, max db:0db,step:0.375db/step
 static const struct snd_kcontrol_new common_snd_controls[] = {
@@ -343,6 +647,15 @@ static const struct snd_kcontrol_new common_snd_controls[] = {
 	SND_SOC_BYTES_EXT("Choice DMIC tdm-8 slot", MAX_TDM_NUM,
 				alsa_dmic_number_get,
 				alsa_dmic_number_put),
+	SND_SOC_BYTES_EXT("DAC EQ Enable", 2,
+				alsa_dac_eq_clock_get,
+				alsa_dac_eq_clock_put),
+	SND_SOC_BYTES_EXT("DAC EQ Coefs", 22,
+				alsa_dac_eq_coef_get,
+				alsa_dac_eq_coef_put),
+	SND_SOC_BYTES_EXT("DAC EQ BAND Enable", 3,
+				alsa_dac_eq_band_get,
+				alsa_dac_eq_band_put),
 };
 
 static int ameba_codec_dai_set_dai_sysclk(struct snd_soc_dai *dai,

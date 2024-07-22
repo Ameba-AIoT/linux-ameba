@@ -947,6 +947,13 @@
 #define AUD_GET_ADC_7_RPTR_HOLD(x)           ((u32)(((x >> 12) & 0x0000000F)))
 /** @} */
 
+/** @defgroup AUDIO_CODEC_DAC_Channel
+  * @{
+  */
+#define AUD_DAC_L                            ((u32)0x00000000)
+#define AUD_DAC_R                            ((u32)0x00000001)
+/** @} */
+
 /**************************************************************************//**
  * @defgroup CODEC_dac_l_control_0
  * @brief
