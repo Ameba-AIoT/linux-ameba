@@ -17,18 +17,21 @@
 #define RTW_MAX_NUM_PMKIDS		4
 #define	MAX_CHANNEL_NUM_2G		14
 #define	MAX_CHANNEL_NUM_5G		28
+#define MAX_CHANNEL_NUM 		(MAX_CHANNEL_NUM_2G + MAX_CHANNEL_NUM_5G)
 #define RTW_G_RATES_NUM			12
 #define RTW_A_RATES_NUM			8
 #define RTW_MAX_REMAIN_ON_CHANNEL_DURATION	5000
 
 #define WIFI_AKM_SUITE_PSK		0x000FAC02
 #define WIFI_AKM_SUITE_SAE		0x000FAC08
+#define WIFI_AKM_SUITE_OWE		0x000FAC12
 
 #define ASSOC_IE_MAX_LEN		500
 #define WLAN_HDR_A3_LEN			24
 #define RSNXE_MAX_LEN (18)
 #define WLAN_EID_RSNX 244
 #define WLAN_EID_RSN			48
+#define WLAN_EID_EXT_OWE_DH_PARAM	32
 
 #define rtw_a_rates			(rtw_rates + 4)
 #define rtw_g_rates			(rtw_rates + 0)

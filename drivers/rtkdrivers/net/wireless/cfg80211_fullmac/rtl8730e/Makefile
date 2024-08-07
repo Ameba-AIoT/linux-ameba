@@ -29,6 +29,7 @@ fullmac-8730e-objs			:= rtw_drv_probe.o \
 					rtw_cfg80211_ops_key.o \
 					rtw_cfg80211_ops_nan.o \
 					rtw_cfg80211_ops_p2p.o \
+					rtw_acs.o \
 
 else ifeq ($(CONFIG_FULLMAC_HCI_SDIO),y)
 

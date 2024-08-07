@@ -41,6 +41,10 @@ static void llhw_event_join_status_indicate(struct event_priv_t *event_priv, u32
 		if (global_idev.mlme_priv.rtw_join_status == RTW_JOINSTATUS_DISCONNECT) {
 			cfg80211_rtw_disconnect_indicate(disassoc_reason, 1);
 		}
+		if (global_idev.mlme_priv.b_in_disconnect) {
+			complete(&global_idev.mlme_priv.disconnect_done_sema);
+			global_idev.mlme_priv.b_in_disconnect = false;
+		}
 	}
 	if (event == WIFI_EVENT_STA_ASSOC) {
 		dev_dbg(global_idev.fullmac_dev, "%s: sta assoc \n", __func__);
@@ -103,6 +107,11 @@ static void llhw_event_join_status_indicate(struct event_priv_t *event_priv, u32
 		}
 #endif
 		cfg80211_rx_mgmt(wdev, rtw_ch2freq(channel), 0, buf, buf_len, 0);
+	}
+
+	if (event == WIFI_EVENT_OWE_PEER_KEY_RECV) {
+		dev_dbg(global_idev.fullmac_dev, "%s: owe update \n", __func__);
+		cfg80211_rtw_update_owe_info_event(buf, buf_len);
 	}
 
 	return;

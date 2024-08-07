@@ -767,6 +767,20 @@ int llhw_wifi_set_wpa_mode(rtw_wpa_mode wpa_mode)
 	return ret;
 }
 
+int llhw_wifi_set_owe_param(struct rtw_owe_param_t *owe_param)
+{
+	int ret = 0;
+	u32 size;
+	u32 *param;
+
+	size = sizeof(struct rtw_owe_param_t);
+	param = (u32 *)kzalloc(size, GFP_KERNEL);
+	memcpy((void *)param, (void *)owe_param, size);
+	llhw_send_msg(INIC_API_WIFI_SET_OWE_PARAM, (u8 *)param, size, (u8 *)&ret, sizeof(int));
+	kfree((void *)param);
+	return ret;
+}
+
 int llhw_wifi_set_gen_ie(unsigned char wlan_idx, char *buf, __u16 buf_len, __u16 flags)
 {
 	int ret = 0;

@@ -502,6 +502,9 @@ int rtw_ndev_alloc(void)
 		global_idev.pwdev_global[i] = wdev;
 	}
 	global_idev.mlme_priv.b_in_scan = false;
+	global_idev.mlme_priv.b_in_disconnect = false;
+
+	init_completion(&global_idev.mlme_priv.disconnect_done_sema);
 
 	return ret;
 

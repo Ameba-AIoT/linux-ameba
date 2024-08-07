@@ -105,6 +105,7 @@
 #include "rtw_functions.h"
 #include "rtw_cfgvendor.h"
 #include "rtw_proc.h"
+#include "rtw_acs.h"
 
 /******************************************************************/
 /********** Definitions between Linux and FULLMAC. **************/
