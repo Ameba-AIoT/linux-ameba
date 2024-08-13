@@ -62,14 +62,15 @@ static void rtk_dma_set_interrupt_mask(
 	struct rtk_dma *rsdma,
 	u32 channel_num, u8 status)
 {
-	u32 int_mask = BIT(channel_num) | BIT(channel_num + 8);
+	u32 int_mask = 0;
 
 	if (status == ENABLE) {
+		int_mask = BIT(channel_num) | BIT(channel_num + 8);
 		rsdma_writel(rsdma->base, RTK_DMA_INT_MASK_BLOCK_L, int_mask);
 		rsdma_writel(rsdma->base, RTK_DMA_INT_MASK_DST_TRAN_L, int_mask);
 		rsdma_writel(rsdma->base, RTK_DMA_INT_MASK_ERR_L, int_mask);
 	} else {
-		int_mask = (~ BIT(channel_num)) | BIT(channel_num + 8);
+		int_mask = BIT(channel_num + 8);
 		rsdma_writel(rsdma->base, RTK_DMA_INT_MASK_BLOCK_L, int_mask);
 		rsdma_writel(rsdma->base, RTK_DMA_INT_MASK_DST_TRAN_L, int_mask);
 		rsdma_writel(rsdma->base, RTK_DMA_INT_MASK_ERR_L, int_mask);
