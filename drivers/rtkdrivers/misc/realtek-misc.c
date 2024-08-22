@@ -18,11 +18,12 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
-#include <misc/realtek-misc.h>
+#include <uapi/misc/realtek-misc.h>
 
 #define MISC_CTRL	"misc-ioctl"
 
 #define DDRC_BIT_DYN_SRE ((u32)0x00000001 << 7)
+#define MISC_GET_RLV(x)  ((u32)(((x >> 0) & 0x0000001F)))
 
 struct rtk_misc_dev {
 	struct device device;
@@ -40,8 +41,6 @@ static struct class *misc_class;
 /* proc fs dir entry */
 static struct proc_dir_entry *misc_proc_dir;
 static struct proc_dir_entry *uuid_proc_ent;
-
-extern int rtk_misc_get_rlv(void);
 
 int rtk_misc_hw_ddrc_autogating(u8 enable)
 {
@@ -158,6 +157,29 @@ static int rtk_misc_get_uuid(struct device *dev, u32 *uuid)
 	return 0;
 }
 
+static int rtk_misc_get_rlv(struct device *dev, int *rlv)
+{
+	struct nvmem_cell *cell;
+	unsigned char *efuse_buf;
+	size_t len;
+
+	cell = nvmem_cell_get(dev, "rlv");
+	if (IS_ERR(cell)) {
+		return PTR_ERR(cell);
+	}
+
+	efuse_buf = nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+
+	if (IS_ERR(efuse_buf)) {
+		return PTR_ERR(efuse_buf);
+	}
+
+	*rlv = MISC_GET_RLV(efuse_buf[0]);
+
+	return 0;
+}
+
 /*
 * misc device file ops
 */
@@ -227,7 +249,10 @@ int rtk_misc_init(void)
 	rtk_misc_create_proc(dev);
 
 	rtk_misc_get_uuid(dev, &mdev->uuid);
-	mdev->rlv = rtk_misc_get_rlv();
+	rtk_misc_get_rlv(dev, &mdev->rlv);
+	if (mdev->rlv >= 0) {
+		pr_info("RLV: %d\n", mdev->rlv);
+	}
 
 	return 0;
 
