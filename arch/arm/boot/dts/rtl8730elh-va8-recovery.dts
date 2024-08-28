@@ -208,6 +208,7 @@
 			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <1>;
+			clocks = <&rcc RTK_CKE_LOGUART>;
 			clock-frequency = <40000000>;
 		};
 		pinctrl: pinctrl@42008A00 {

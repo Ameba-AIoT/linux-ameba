@@ -211,7 +211,6 @@
 			clocks = <&rcc RTK_CKE_LOGUART>;
 			clock-frequency = <40000000>;
 		};
-
 		pinctrl: pinctrl@42008A00 {
 			compatible = "realtek,ameba-pinctrl";
 			#address-cells = <1>;
@@ -232,6 +231,8 @@
 					drive-strength = <0>;
 				};
 			};
+
+
 		};
 
 		sdioh: sdioh@400D0000 {
@@ -286,7 +287,7 @@
 		};
 
 		spic: spi@44000000 {
-			compatible = "realtek,rxi312-nand";
+			compatible = "realtek,rxi312-nor";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			bus_num = <2>;
@@ -297,7 +298,7 @@
 			flash0: flash@0 {
 				#address-cells = <1>;
 				#size-cells = <1>;
-				compatible = "spi-nand";
+				compatible = "jedec,spi-nor";
 				spi-max-frequency = <100000000>;
 				reg = <0>;
 
@@ -305,29 +306,30 @@
 					compatible = "fixed-partitions";
 					#address-cells = <1>;
 					#size-cells = <1>;
+
 					partition@0 {
 						label = "AP Misc";
-						reg = <0x620000 0x40000>;
+						reg = <0x620000 0xC000>;
 					};
 					partition@1 {
 						label = "AP vbmeta";
-						reg = <0x6A0000 0x40000>;
+						reg = <0x62C000 0xC000>;
 					};
 					partition@2 {
 						label = "Device tree blob";
-						reg = <0x720000 0x60000>;
+						reg = <0xA38000 0x8000>;
 					};
 					partition@3 {
 						label = "Kernel image";
-						reg = <0x7E0000 0xF00000>;
+						reg = <0xA40000 0x400000>;
 					};
 					partition@4 {
 						label = "Squashfs filesystem";
-						reg = <0x1BE0000 0x3C00000>;
+						reg = <0xE40000 0x1000000>;
 					};
 					partition@5 {
 						label = "ubi/jffs2 filesystem";
-						reg = <0x57E0000 0x2820000>;
+						reg = <0x1E40000 0x1C0000>;
 					};
 					partition@6 {
 						label = "KM4 boot slotA";
@@ -370,13 +372,13 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyS0,1500000 earlycon psci=enable ubi.mtd=5";
+		bootargs = "console=ttyS0,1500000 earlycon psci=enable";
 		stdout-path = &loguart;
 	};
 
 	memory {
 		device_type = "memory";
 		// DRAM base address should be 1MB-aligned.
-		reg = <0x60300000 0x7D00000>;  // 128MB -- exclude 3MB secure memory
+		reg = <0x60300000 0x3D00000>;  // 64MB -- exclude 3MB secure memory
 	};
 };

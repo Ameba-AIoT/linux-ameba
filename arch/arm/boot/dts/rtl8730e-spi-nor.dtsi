@@ -29,32 +29,47 @@
 					#size-cells = <1>;
 
 					partition@0 {
-						label = "AP Misc";
-						reg = <0x620000 0x18000>;
+						label = "Miscellaneous Information";
+						reg = <0x620000 0xC000>;
 					};
 					partition@1 {
-						label = "AP Recovery Device tree blob";
-						reg = <0x638000 0x6000>;
+						label = "VBMeta Data A";
+						reg = <0x62C000 0x6000>;
+						read-only;
 					};
 					partition@2 {
-						label = "AP Recovery Initramfs/kernel image";
-						reg = <0x63E000 0x2FA000>;
+						label = "VBMeta Data B";
+						reg = <0x632000 0x6000>;
+						read-only;
 					};
 					partition@3 {
-						label = "Device tree blob";
-						reg = <0x938000 0x8000>;
+						label = "AP Recovery Device tree blob";
+						reg = <0x638000 0x6000>;
+						read-only;
 					};
 					partition@4 {
-						label = "Kernel image";
-						reg = <0x940000 0x500000>;
+						label = "AP Recovery Initramfs/kernel image";
+						reg = <0x63E000 0x3FA000>;
+						read-only;
 					};
 					partition@5 {
-						label = "Squashfs filesystem";
-						reg = <0xE40000 0xB80000>;
+						label = "Device tree blob";
+						reg = <0xA38000 0x8000>;
+						read-only;
 					};
 					partition@6 {
-						label = "jffs2 filesystem";
-						reg = <0x19C0000 0x640000>;
+						label = "Kernel image";
+						reg = <0xA40000 0x400000>;
+						read-only;
+					};
+					partition@7 {
+						label = "Rootfs image";
+						reg = <0xE40000 0x1000000>;
+						read-only;
+					};
+					partition@8 {
+						label = "Userdata image";
+						reg = <0x1E40000 0x1C0000>;
 					};
 
 				};
@@ -63,7 +78,7 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyS0,1500000 earlycon psci=enable root=/dev/mtdblock5 rootfstype=squashfs";
+		bootargs = "console=ttyS0,1500000 earlycon psci=enable root=/dev/mtdblock7 rootfstype=squashfs";
 		stdout-path = &loguart;
 	};
 
