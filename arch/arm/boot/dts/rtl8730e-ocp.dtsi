@@ -200,8 +200,8 @@
 		misc: misc@41100000 {
 			compatible = "realtek,ameba-misc";
 			reg = <0x41100008 0x4>;
-			nvmem-cells = <&efuse_uuid>;
-			nvmem-cell-names = "uuid";
+			nvmem-cells = <&efuse_uuid>, <&efuse_rlv>;
+			nvmem-cell-names = "uuid", "rlv";
 			rtk,ddr-auto-gating-ctrl = <0>;
 			status = "okay";
 		};
@@ -211,13 +211,16 @@
 			reg = <0x42008000 0x1000>;
 		};
 
-
 		otp_phy: otp_phy@42000000 {
 			compatible = "realtek,ameba-otp-phy";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x42000000 0x800>,
 				<0x42008000 0x1000>;
+
+			efuse_rlv: rlv@7F0 {
+				reg = <0x07F0 0x1>;
+			};
 
 			efuse_uuid: uuid@7F4 {
 				reg = <0x07F4 0x4>;

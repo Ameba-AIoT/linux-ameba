@@ -19,18 +19,9 @@
 #include <linux/reboot.h>
 #include <linux/sysfs.h>
 #include <mach/hardware.h>
-#include <misc/realtek-misc.h>
-
-#define BOOTLOADER_PHYSICAL_ADDR     0x42008D04UL
-#define BOOTLOADER_IMAGE2_PHY_ADDR   0x80220001UL
-
-#define LSYS_MASK_CI_EN              ((u32)0x0000000F << 28)
-#define LSYS_CI_EN(x)                ((u32)((x) & 0x0000000F) << 28)
-#define LSYS_GET_RLV(x)              ((u32)(((x >> 16) & 0x0000000F)))
 
 /* SYSTEM_CTRL_BASE_LP */
 static void __iomem *plat_lsys_base = NULL;
-static void __iomem *plat_lsys_base_ctrl = NULL;
 
 /* allocate io resource */
 static struct map_desc bsp_io_desc[] __initdata = {
@@ -47,31 +38,6 @@ static struct map_desc bsp_io_desc[] __initdata = {
 		.type = MT_DEVICE,
 	},
 };
-
-int rtk_misc_get_rlv(void)
-{
-	int result = -1;
-
-	if (plat_lsys_base_ctrl != NULL) {
-		u32 value;
-		u32 value32;
-
-		value = readl(plat_lsys_base_ctrl);
-		value &= ~(LSYS_MASK_CI_EN);
-		value |= LSYS_CI_EN(0xA);
-		writel(value, plat_lsys_base_ctrl);
-
-		value32 = readl(plat_lsys_base_ctrl);
-		value &= ~(LSYS_MASK_CI_EN);
-		writel(value, plat_lsys_base_ctrl);
-
-		result = (int)(LSYS_GET_RLV(value32));
-	}
-
-	return result;
-}
-
-EXPORT_SYMBOL(rtk_misc_get_rlv);
 
 static void __init plat_map_io(void)
 {
@@ -100,7 +66,6 @@ static void plat_arch_restart(enum reboot_mode mode, const char *cmd)
 static void __init plat_init_machine(void)
 {
 	struct device_node *np;
-	int rlv;
 
 	np = of_find_compatible_node(NULL, NULL, "realtek,ameba-system-ctrl-ls");
 	if (np) {
@@ -111,20 +76,10 @@ static void __init plat_init_machine(void)
 			pr_err("%s:of_iomap(plat_lsys_base) failed\n", __func__);
 		}
 
-		plat_lsys_base_ctrl = of_iomap(np, 1);
-		if (!plat_lsys_base_ctrl) {
-			pr_err("%s:of_iomap(plat_lsys_base_ctrl) failed\n", __func__);
-		}
-
 		of_node_put(np);
 	}
 
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
-
-	rlv = rtk_misc_get_rlv();
-	if (rlv >= 0) {
-		pr_info("RLV: %d\n", rlv);
-	}
 }
 
 #ifdef CONFIG_SMP
