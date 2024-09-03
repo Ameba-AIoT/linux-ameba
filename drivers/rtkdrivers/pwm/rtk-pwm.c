@@ -82,7 +82,6 @@ static void rtk_pwm_timer_start_count(struct pwm_chip *chip, u32 NewState)
 
 		/* Poll if cnt is running, 3*32k cycles */
 		while (1) {
-			mdelay(200);
 			if (readl(base + REG_TIM_EN) & TIM_BIT_CEN) {
 				break;
 			}
