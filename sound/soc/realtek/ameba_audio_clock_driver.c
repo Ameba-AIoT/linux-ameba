@@ -408,10 +408,6 @@ static int ameba_update_98P304M_input_clock_status(struct audio_clock_component*
 		tmp &= ~ PLL_BIT_IPLL1_POW_PLL;
 		tmp &= ~ PLL_BIT_IPLL1_POW_ERC;
 		writel(tmp, data->addr + REG_PLL_I2SPLL1_CTRL0);
-
-		tmp = readl(data->addr + REG_PLL_AUX_BG);
-		tmp &= ~ (PLL_BIT_POW_BG | PLL_BIT_POW_I | PLL_BIT_POW_MBIAS);
-		writel(tmp, data->addr + REG_PLL_AUX_BG);
 	}
 	return res;
 }
@@ -494,10 +490,6 @@ static int ameba_update_45P1584_input_clock_status(struct audio_clock_component*
 		tmp &= ~ PLL_BIT_IPLL2_POW_PLL;
 		tmp &= ~ PLL_BIT_IPLL2_POW_ERC;
 		writel(tmp, data->addr + REG_PLL_I2SPLL2_CTRL0);
-
-		tmp = readl(data->addr + REG_PLL_AUX_BG);
-		tmp &= ~ (PLL_BIT_POW_BG | PLL_BIT_POW_I | PLL_BIT_POW_MBIAS);
-		writel(tmp, data->addr + REG_PLL_AUX_BG);
 	}
 	return res;
 }
@@ -574,10 +566,6 @@ static int ameba_update_24P576_input_clock_status(struct audio_clock_component* 
 		tmp &= ~ PLL_BIT_IPLL1_POW_PLL;
 		tmp &= ~ PLL_BIT_IPLL1_POW_ERC;
 		writel(tmp, data->addr + REG_PLL_I2SPLL1_CTRL0);
-
-		tmp = readl(data->addr + REG_PLL_AUX_BG);
-		tmp &= ~ (PLL_BIT_POW_BG | PLL_BIT_POW_I | PLL_BIT_POW_MBIAS);
-		writel(tmp, data->addr + REG_PLL_AUX_BG);
 	}
 	return res;
 }
