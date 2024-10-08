@@ -43,6 +43,7 @@ int llhw_xmit_entry(int idx, struct sk_buff *pskb)
 {
 	struct dev_sk_buff *skb = NULL;
 	struct skb_data *skb_data = NULL;
+	struct list_head *skbinfo_list = NULL;
 	dma_addr_t skb_data_phy = 0, skb_phy = 0;
 	int ret = NETDEV_TX_OK;
 	u32 skb_index = 0;
@@ -67,6 +68,7 @@ int llhw_xmit_entry(int idx, struct sk_buff *pskb)
 	spin_lock(&(global_idev.xmit_priv.skb_lock));
 	skb_index = global_idev.xmit_priv.skb_idx;
 	skb = &global_idev.xmit_priv.host_skb_info[skb_index].skb;
+	skbinfo_list = &global_idev.xmit_priv.host_skb_info[skb_index].list;
 	/*next skb may be busy if NP release skb out of order when tx in different ACs or under softap mode*/
 	if ((skb->busy) && ((skb = llhw_find_one_free_skb(&skb_index, &b_dropped)) == NULL)) {
 		spin_unlock(&(global_idev.xmit_priv.skb_lock));
@@ -89,6 +91,7 @@ int llhw_xmit_entry(int idx, struct sk_buff *pskb)
 	skb->tail = (unsigned char *)(skb_data_phy + SKB_DATA_ALIGN(SKB_WLAN_TX_EXTRA_LEN));
 	skb->no_free = 1;
 	skb->len = 0;
+	skbinfo_list->prev = skbinfo_list->next = skb_phy - offsetof(struct skb_info, skb);
 	atomic_set(&skb_data->ref, 1);
 	dev_skb_put(skb, pskb->len);
 

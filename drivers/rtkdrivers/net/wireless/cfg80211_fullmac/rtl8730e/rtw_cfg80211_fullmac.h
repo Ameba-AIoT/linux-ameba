@@ -88,6 +88,7 @@
 /* ipc driver. */
 #include <ameba_ipc/ameba_ipc.h>
 #include "inic_ipc.h"
+#include "rtw_llhw_mem.h"
 #else
 #include <linux/mmc/sdio_func.h>
 #include "inic_sdio.h"
