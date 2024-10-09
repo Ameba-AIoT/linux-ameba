@@ -591,26 +591,8 @@ int llhw_wifi_iwpriv_cmd(dma_addr_t cmd_addr, unsigned int cmd_len, dma_addr_t u
 
 u64 llhw_wifi_get_tsft(u8 iface_type)
 {
-	u8 *wifi_base_vir = NULL;
-	u32 *tsf_base_vir = NULL;
-	u32 reg_tsf_low = 0, reg_tsf_high = 0;
-	u64 tsft_val = 0;
-
-	wifi_base_vir = (u8 *)paxi_data_global->axi_mem_start;
-	tsf_base_vir = (u32 *)(wifi_base_vir + 0x560);
-
-	if (iface_type == 0) {
-		reg_tsf_low = tsf_base_vir[0];
-		reg_tsf_high = tsf_base_vir[1];
-	} else if (iface_type == 1) {
-		reg_tsf_low = tsf_base_vir[2];
-		reg_tsf_high = tsf_base_vir[3];
-	} else {
-		dev_warn(global_idev.fullmac_dev, "[AP] unknown port(%d)!\n", iface_type);
-	}
-
-	tsft_val = ((u64)reg_tsf_high << 32) | reg_tsf_low;
-	return tsft_val;
+	dev_err(global_idev.fullmac_dev, "%s sdio cannot access wifi reg directly!\n", __func__);
+	return 0;
 }
 
 #ifdef CONFIG_NAN
