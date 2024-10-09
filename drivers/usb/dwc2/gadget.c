@@ -13,6 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/kconfig.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
@@ -22,6 +23,7 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/slab.h>
+#include <linux/of.h>
 #include <linux/of_platform.h>
 
 #include <linux/usb/ch9.h>
@@ -32,7 +34,7 @@
 
 #include "core.h"
 #include "hw.h"
-#ifdef CONFIG_ARCH_AMEBASMART
+#if defined(CONFIG_USB_RTK_AMEBA_USB20PHY) || defined(CONFIG_USB_RTK_AMEBA_USB20PHY_MODULE)
 #include "phy-rtk-usb.h"
 #endif
 
@@ -4639,7 +4641,7 @@ static int dwc2_hsotg_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct dwc2_hsotg *hsotg = to_hsotg(gadget);
 	unsigned long flags = 0;
-#ifdef CONFIG_ARCH_AMEBASMART
+#if defined(CONFIG_USB_RTK_AMEBA_USB20PHY) || defined(CONFIG_USB_RTK_AMEBA_USB20PHY_MODULE)
 	int ret = 0;
 #endif
 
@@ -4656,13 +4658,13 @@ static int dwc2_hsotg_pullup(struct usb_gadget *gadget, int is_on)
 	if (is_on) {
 		hsotg->enabled = 1;
 		dwc2_hsotg_core_init_disconnected(hsotg, false);
-	#ifdef CONFIG_ARCH_AMEBASMART
+#if defined(CONFIG_USB_RTK_AMEBA_USB20PHY) || defined(CONFIG_USB_RTK_AMEBA_USB20PHY_MODULE)
 		ret = rtk_phy_calibrate(hsotg);
 		if (ret != 0) {
 			dev_err(hsotg->dev,"PHY calibration fail\n");
 			return ret;
         }
-	#endif
+#endif
 		/* Enable ACG feature in device mode,if supported */
 		dwc2_enable_acg(hsotg);
 		dwc2_hsotg_core_connect(hsotg);
@@ -4727,6 +4729,126 @@ static int dwc2_hsotg_vbus_draw(struct usb_gadget *gadget, unsigned int mA)
 	return usb_phy_set_power(hsotg->uphy, mA);
 }
 
+#if defined(CONFIG_USB_RTK_AMEBA_USB20PHY) || defined(CONFIG_USB_RTK_AMEBA_USB20PHY_MODULE)
+/**
+ * dwc2_hsotg_match_ep - choose an endpoint matching the descriptor
+ * @gadget: The usb gadget state
+ * @desc: The USB endpoint descriptor to configure with.
+ * @ep_comp: Endpoint companion descriptor, with the required number of streams.
+ *
+ * This function will parse the endpoints nodes in DTS, rewrite the transmission
+ * capability of EP, and finally return EP that matches the descriptor.
+ */
+static struct usb_ep *dwc2_hsotg_match_ep(struct usb_gadget *gadget,
+	struct usb_endpoint_descriptor *desc,
+	struct usb_ss_ep_comp_descriptor *ep_comp)
+{
+	struct usb_ep *ep = NULL;
+	static int initialized = 0;
+	struct dwc2_hsotg *hsotg = to_hsotg(gadget);
+	struct device_node *np = hsotg->dev->of_node;
+	struct device_node *endpoint_node, *endpoints_node;
+	const char *name;
+	int num = 0;
+	int count_elems = 0;
+	int count = 0;
+	int i = 0;
+	int j = 0;
+	int matched = 0;
+	uint32_t ep_type;
+	struct usb_ep *parsed_ep = NULL;
+
+	if (!initialized) {
+		list_for_each_entry(ep, &gadget->ep_list, ep_list) {
+			num++;
+		}
+
+		if (num <= 0) {
+			dev_err(hsotg->dev, "Failed to get num of ep_list.\n");
+			goto cleanup;
+		}
+
+		parsed_ep = kmalloc_array(num, sizeof(struct usb_ep), GFP_KERNEL);
+		if (!parsed_ep) {
+			dev_err(hsotg->dev, "Failed to allocate memory for parsed_ep.\n");
+			goto cleanup;
+		}
+
+		endpoints_node = of_get_child_by_name(np, "endpoints");
+		if (!endpoints_node) {
+			dev_err(hsotg->dev, "Failed to find endpoints node.\n");
+			goto cleanup;
+		}
+
+		count_elems = of_get_child_count(endpoints_node);
+		if (count_elems < 0) {
+			dev_err(hsotg->dev, "Failed to get child node count.\n");
+			goto cleanup;
+		}
+
+		if (count_elems > num) {
+			dev_err(hsotg->dev, "Too many endpoints defined, max supported is %d.\n", num);
+			goto cleanup;
+		}
+
+		for_each_child_of_node(endpoints_node, endpoint_node) {
+			if (of_property_read_string(endpoint_node, "ep_name", &name)) {
+				dev_err(hsotg->dev, "Failed to read ep_name.\n");
+				goto cleanup;
+			}
+
+			if (of_property_read_u32(endpoint_node, "ep_type", &ep_type)) {
+				dev_err(hsotg->dev, "Failed to read ep_type\n");
+				goto cleanup;
+			}
+
+			parsed_ep[count].name = name;
+			parsed_ep[count].caps.type_control = (ep_type & USB_EP_CAPS_TYPE_CONTROL) ? 1 : 0;
+			parsed_ep[count].caps.type_iso = (ep_type & USB_EP_CAPS_TYPE_ISO) ? 1 : 0;
+			parsed_ep[count].caps.type_bulk = (ep_type & USB_EP_CAPS_TYPE_BULK) ? 1 : 0;
+			parsed_ep[count].caps.type_int = (ep_type & USB_EP_CAPS_TYPE_INT) ? 1 : 0;
+			count++;
+		}
+
+		list_for_each_entry(ep, &gadget->ep_list, ep_list) {
+			matched = 0;
+			for(j = 0;j < count_elems;j++)
+			{
+				if(strcmp(ep->name, parsed_ep[j].name) == 0){
+					ep->caps.type_control = parsed_ep[j].caps.type_control;
+					ep->caps.type_iso = parsed_ep[j].caps.type_iso;
+					ep->caps.type_bulk = parsed_ep[j].caps.type_bulk;
+					ep->caps.type_int = parsed_ep[j].caps.type_int;
+					matched = 1;
+					break;
+				}
+			}
+
+			if(matched != 1){
+				dev_err(hsotg->dev, "Failed to get %s matched epname from dts\n",ep->name);
+				goto cleanup;
+			}
+			i++;
+		}
+		kfree(parsed_ep);
+		initialized = 1;
+	}
+
+	list_for_each_entry (ep, &gadget->ep_list, ep_list) {
+		if (usb_gadget_ep_match_desc(gadget, ep, desc, ep_comp)){
+			return ep;
+		}
+	}
+	return NULL;
+
+cleanup:
+	if(parsed_ep != NULL){
+		kfree(parsed_ep);
+	}
+	return NULL;
+}
+#endif
+
 static const struct usb_gadget_ops dwc2_hsotg_gadget_ops = {
 	.get_frame	= dwc2_hsotg_gadget_getframe,
 	.udc_start		= dwc2_hsotg_udc_start,
@@ -4734,6 +4856,9 @@ static const struct usb_gadget_ops dwc2_hsotg_gadget_ops = {
 	.pullup                 = dwc2_hsotg_pullup,
 	.vbus_session		= dwc2_hsotg_vbus_session,
 	.vbus_draw		= dwc2_hsotg_vbus_draw,
+#if defined(CONFIG_USB_RTK_AMEBA_USB20PHY) || defined(CONFIG_USB_RTK_AMEBA_USB20PHY_MODULE)
+	.match_ep		= dwc2_hsotg_match_ep,
+#endif
 };
 
 /**
