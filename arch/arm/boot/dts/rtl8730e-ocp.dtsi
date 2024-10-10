@@ -68,7 +68,7 @@
 			compatible = "realtek,rtl8730e_nic";
 			interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
-			reg = <0x40000000 0x80000>; // wifi register base address and length
+			reg = <0x40000000 0x80000>, // wifi register base address and length
 				<0x60000020 0x15B000>; // km4 ram base address and length in amebasmart_layout.ld
 			pinctrl-names = "default";
 			pinctrl-0 = <&wifi_ant_sel>;
