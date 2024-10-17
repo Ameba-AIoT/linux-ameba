@@ -13,6 +13,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/io.h>
+#include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/export.h>
 #include "phy-rtk-usb.h"
@@ -50,20 +51,6 @@ static const struct of_device_id rtk_phy_dt_ids[] = {
 
 MODULE_DEVICE_TABLE(of, rtk_phy_dt_ids);
 
-static const struct rtk_usb_phy_cal_data_t rtk_usb_cal_data[] = {
-	{0x00, 0xE0, 0x9D},
-	{0x00, 0xE1, 0x19},
-	{0x00, 0xE2, 0xDB},
-	{0x00, 0xE4, 0x68},
-	{0x01, 0xE5, 0x0A},
-	{0x01, 0xE6, 0xD8},
-	{0x02, 0xE7, 0x52},
-	{0x01, 0xE0, 0x04},
-	{0x01, 0xE0, 0x00},
-	{0x01, 0xE0, 0x04},
-
-	{0xFF, 0x00, 0x00}
-};
 
 #if USB_CAL_OTP_EN
 
@@ -140,12 +127,7 @@ static int rtk_phy_read(struct dwc2_hsotg *hsotg, u8 addr, u8 *val)
 {
 	u32 pvndctl;
 	int ret = 0;
-	u8 addr_read;
-	if (addr >= 0xE0) {
-		addr_read = addr - 0x20;
-	} else {
-		addr_read = addr;
-	}
+	u8 addr_read = addr - 0x20;
 
 	ret = rtk_load_vcontrol(hsotg, PHY_LOW_ADDR(addr_read));
 	if (ret == 0) {
@@ -189,8 +171,16 @@ int rtk_phy_calibrate(struct dwc2_hsotg *hsotg)
 	u8 reg;
 #endif
 	u8 old_page = 0xFF;
-	struct rtk_usb_phy_cal_data_t *data = (struct rtk_usb_phy_cal_data_t *)rtk_usb_cal_data;
-	struct rtk_phy *rtk_phy;
+	struct rtk_usb_phy_cal_data_t *data = NULL;
+	struct rtk_usb_phy_cal_data_t *data_tmp = NULL;
+	struct rtk_phy *rtk_phy = NULL;
+	struct device_node *np = NULL;
+	u32 *cal_data = NULL;
+	u32 *cal_data_tmp = NULL;
+	int prop_size = 0;
+	int num_entries = 0;
+	const int entry_size = 3;
+	int i = 0;
 
 	if (!hsotg || !hsotg->uphy) {
 		return -EINVAL;
@@ -201,49 +191,104 @@ int rtk_phy_calibrate(struct dwc2_hsotg *hsotg)
 		return 0;
 	}
 
-	rtk_phy->is_cal = 1;
+	np = rtk_phy->phy.dev->of_node;
+	if (!np) {
+		dev_err(hsotg->dev, "Failed to get device node\n");
+		return -EINVAL;
+	}
+
+	prop_size = of_property_count_elems_of_size(np, "rtk,cal-data", sizeof(uint32_t));
+	if ((prop_size <= 0) || (prop_size % 3 != 0)) {
+		dev_err(hsotg->dev, "Property 'rtk,phydata' size %d is invalid or not meet the format\n", prop_size);
+		return -EINVAL;
+	}
+
+	cal_data = devm_kzalloc(hsotg->dev, prop_size * sizeof(uint32_t), GFP_KERNEL);
+	if (!cal_data) {
+		dev_err(hsotg->dev, "Failed to malloc cal_data\n");
+		ret = -ENOMEM;
+		goto cleanup;
+	}
+
+	num_entries = prop_size / entry_size;
+	data = devm_kzalloc(hsotg->dev, num_entries * sizeof(struct rtk_usb_phy_cal_data_t), GFP_KERNEL);
+	if (!data){
+		dev_err(hsotg->dev, "Failed to malloc data\n");
+		ret = -ENOMEM;
+		goto cleanup;
+	}
+
+	ret = of_property_read_u32_array(np, "rtk,cal-data", cal_data, prop_size);
+	if (ret) {
+		dev_err(hsotg->dev, "Failed to read 'rtk,phydata'\n");
+		goto cleanup;
+	}
+
+	for (i = 0; i < num_entries; i++) {
+		data_tmp = data + i;
+		cal_data_tmp = cal_data + i * entry_size;
+		data_tmp->page = (u8)*(cal_data_tmp);
+		data_tmp->addr = (u8)*(cal_data_tmp + 1);
+		data_tmp->val = (u8)*(cal_data_tmp + 2);
+	}
+
+	devm_kfree(hsotg->dev, cal_data);
 
 #if IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
 	ret = rtk_phy_page_set(hsotg, USB_OTG_PHY_REG_F4_BIT_PAGE1);
 	if (ret != 0) {
 		dev_err(hsotg->dev, "Failed to select page 1: %d\n", ret);
-		return ret;
+		goto cleanup;
 	}
 
 	ret = rtk_phy_read(hsotg, USB_OTG_PHY_REG_E1, &reg);
 	if (ret != 0) {
 		dev_err(hsotg->dev, "Failed to read USB_OTG_PHY_REG_E1: %d\n", ret);
-		return ret;
+		goto cleanup;
 	}
 
 	reg |= USB_OTG_PHY_REG_E1_PAGE1_BIT_EN_OTG;
 	ret = rtk_phy_write(hsotg, USB_OTG_PHY_REG_E1, reg);
 	if (ret != 0) {
 		dev_err(hsotg->dev, "Failed to write USB_OTG_PHY_REG_E1: %d\n", ret);
-		return ret;
+		goto cleanup;
 	}
 #endif
 
 	/* 3ms + 2.5us from DD, 3ms already delayed after soft disconnect */
 	usleep_range(3, 4);
 
-	while (data->page != 0xFF) {
-		if (data->page != old_page) {
-			ret = rtk_phy_page_set(hsotg, data->page);
+	i = 0;
+	while (i < num_entries) {
+		data_tmp = data + i;
+		if (data_tmp->page != old_page) {
+			ret = rtk_phy_page_set(hsotg, data_tmp->page);
 			if (ret != 0) {
-				dev_err(hsotg->dev, "Failed to switch to page %d: %d\n", data->page, ret);
-				break;
+				dev_err(hsotg->dev, "Failed to switch to page %d: %d\n",  data_tmp->page, ret);
+				goto cleanup;
 			}
-			old_page = data->page;
+			old_page = data_tmp->page;
 		}
-		ret = rtk_phy_write(hsotg, data->addr, data->val);
+		ret = rtk_phy_write(hsotg, data_tmp->addr, data_tmp->val);
 		if (ret != 0) {
-			dev_err(hsotg->dev, "Failed to write page %d register 0x%02X: %d\n", data->page, data->addr, ret);
-			break;
+			dev_err(hsotg->dev, "Failed to write page %d register 0x%02X: %d\n", data_tmp->page, data_tmp->addr, ret);
+			goto cleanup;
 		}
-		data++;
+		i++;
 	}
 
+	devm_kfree(hsotg->dev, data);
+	rtk_phy->is_cal = 1;
+	return ret;
+
+cleanup:
+	if(cal_data != NULL){
+		devm_kfree(hsotg->dev, cal_data);
+	}
+	if(data != NULL){
+		devm_kfree(hsotg->dev, data);
+	}
+	rtk_phy->is_cal = 0;
 	return ret;
 }
 EXPORT_SYMBOL_GPL(rtk_phy_calibrate);
