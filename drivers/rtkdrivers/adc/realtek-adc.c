@@ -580,6 +580,8 @@ static irqreturn_t realtek_adc_isr(int irq, void *data)
 	u32 cnt;
 	int ret = 0;
 
+	pm_wakeup_event(&indio_dev->dev, 0);
+
 	if (status & ADC_BIT_CV_END_STS) {
 		/* ADC timer mode end irq. */
 		if ((adc->mode != ADC_TIM_TRI_MODE) || !ADC_GET_FLR(readl(adc->base + RTK_ADC_FLR))) {

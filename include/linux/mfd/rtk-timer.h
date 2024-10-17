@@ -270,8 +270,9 @@
 
 
 struct rtk_tim{
-	struct clk * tim_clk;
-	void __iomem * base;
+        struct device *dev;
+	struct clk *tim_clk;
+	void __iomem *base;
 	u32 clk_rate;
 	int irq;
 	int valid;

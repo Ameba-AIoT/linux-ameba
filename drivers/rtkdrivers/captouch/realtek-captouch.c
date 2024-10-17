@@ -188,6 +188,8 @@ static irqreturn_t realtek_captouch_irq(int irq, void *dev_id)
 
 	IntStatus  = readl(captouch->base + RTK_CT_INTERRUPT_STATUS);
 
+	pm_wakeup_event(captouch->dev, 0);
+
 	for (i = 0; i < (CT_CHANNEL_NUM - 1); i++) {
 		if (IntStatus & CT_CHX_PRESS_INT(i)) {
 			dev_info(captouch->dev, "Key %d press\n", i);
