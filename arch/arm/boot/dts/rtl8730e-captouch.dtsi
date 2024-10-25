@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for captouch
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+#include <dt-bindings/realtek/clock/realtek-ameba-clock.h>
+#include <dt-bindings/input/input.h>
+
+ / {
+	ocp {
+		captouch: captouch@42010000 {
+			compatible = "realtek,ameba-captouch";
+			reg = <0x42010000 0x500>,
+				<0x420082F8 0x4>;//Control digital path input for ADC and CTC pad
+			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc RTK_CKE_CTC>, <&rcc RTK_CKE_ADC>;
+			clock-names = "rtk_ctc_clk", "rtk_adc_clk";
+			rtk,ctc-diffthr = <800>, <800>, <800>, <800>, <1000>, <1000>, <1000>, <1000>, <1000>;
+			rtk,ctc-mbias = <0x18>, <0x17>, <16>, <0x1B>, <0x00>, <0x00>, <0x00>, <0x00>, <0x00>;
+			rtk,ctc-nnoise = <400>, <400>, <400>, <400>, <1000>, <1000>, <1000>, <1000>, <1000>;
+			rtk,ctc-pnoise = <400>, <400>, <400>, <400>, <1000>, <1000>, <1000>, <1000>, <1000>;
+			rtk,ctc-ch-status = <1>, <1>, <1>, <1>, <0>, <0>,<0>, <0>, <0>;
+			rtk,ctc-keycodes = <KEY_1>, <KEY_2>, <KEY_3>, <KEY_4>, <KEY_5>, <KEY_6>, <KEY_7>, <KEY_8>, <KEY_9>;
+			nvmem-cells = <&efuse_ctc_mbias>;
+			nvmem-cell-names = "ctc_mbias";
+			status = "disabled";
+		};
+	};
+};

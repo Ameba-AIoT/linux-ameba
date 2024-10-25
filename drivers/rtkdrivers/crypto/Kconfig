@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-2.0-only
+menuconfig CRYPTO_RTK_AMEBA
+    tristate "Crypto Drivers"
+
+if CRYPTO_RTK_AMEBA
+
+config HASH_RTK_AMEBA
+	tristate "Hash driver"
+	depends on HAS_DMA
+	select CRYPTO
+	select CRYPTO_HASH
+	select CRYPTO_MD5
+	select CRYPTO_SHA1
+	select CRYPTO_SHA256
+	select CRYPTO_SHA512
+	select CRYPTO_HMAC
+	select CRYPTO_ENGINE
+	help
+          This enables support for the HASH hw accelerator which can be found
+	  on Realtek SOC.
+
+config AES_RTK_AMEBA
+	tristate "AES driver"
+	select CRYPTO
+	select CRYPTO_AES
+	select CRYPTO_CBC
+	select CRYPTO_ECB
+	select CRYPTO_OFB
+	select CRYPTO_CFB
+	select CRYPTO_CTR
+	select CRYPTO_GCM
+	select CRYPTO_ENGINE
+	help
+          This enables support for the AES hw accelerator which
+	  can be found on Realtek SOC.
+
+endif

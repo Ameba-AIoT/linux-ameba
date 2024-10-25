@@ -38,13 +38,15 @@ config USB_XHCI_DBGCAP
 	  before enabling this option. If unsure, say 'N'.
 
 config USB_XHCI_PCI
-       tristate
-       depends on USB_PCI
-       default y
+	tristate "Support for XHCI USB controller on PCI"
+	depends on USB_PCI
+	default n
 
 config USB_XHCI_PLATFORM
 	tristate "Generic xHCI driver for a platform device"
 	select USB_XHCI_RCAR if ARCH_RENESAS
+	depends on USB_XHCI_HCD
+	default y
 	---help---
 	  Adds an xHCI host driver for a generic platform device, which
 	  provides a memory space and an irq.
@@ -154,9 +156,9 @@ config USB_EHCI_TT_NEWSCHED
 if USB_EHCI_HCD
 
 config USB_EHCI_PCI
-	tristate
+	tristate "Support for EHCI USB controller on PCI"
 	depends on USB_PCI
-	default y
+	default n
 
 config USB_EHCI_HCD_PMC_MSP
 	tristate "EHCI support for on-chip PMC MSP71xx USB controller"
@@ -399,6 +401,11 @@ config USB_OHCI_HCD
 	  module will be called ohci-hcd.
 
 if USB_OHCI_HCD
+
+config USB_OHCI_PCI
+	tristate "Support for OHCI USB controller on PCI"
+	depends on USB_PCI
+	default n
 
 config USB_OHCI_HCD_OMAP1
 	tristate "OHCI support for OMAP1/2 chips"

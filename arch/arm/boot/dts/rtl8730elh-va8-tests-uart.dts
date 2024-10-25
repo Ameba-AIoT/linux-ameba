@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for UART test
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/dts-v1/;
+
+#include "rtl8730e.dtsi"
+#include "rtl8730e-spi-nand-256m.dtsi"
+
+/ {
+	memory {
+		device_type = "memory";
+		// DRAM base address should be 1MB-aligned.
+		reg = <0x60300000 0xFD00000>;  // 256MB -- exclude 3MB secure memory
+	};
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		// reserver 32M mem for drm graphics , from 0x61000000 to 0x63000000
+		mem_drm_reserved: drm_buffer@0x61000000 {
+			compatible = "shared-dma-pool";
+			no-map;
+			reg = <0x61000000 0x2000000>;
+			//linux,cma-default;
+		};
+	};
+};
+
+// Configure peripherals.
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pins>;
+	wakeup-source;
+	status = "okay";
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins>;
+	wakeup-source;
+	status = "okay";
+};
+
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins>;
+	wakeup-source;
+	status = "okay";
+};

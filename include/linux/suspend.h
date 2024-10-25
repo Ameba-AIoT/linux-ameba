@@ -38,7 +38,9 @@ typedef int __bitwise suspend_state_t;
 #define PM_SUSPEND_STANDBY	((__force suspend_state_t) 2)
 #define PM_SUSPEND_MEM		((__force suspend_state_t) 3)
 #define PM_SUSPEND_MIN		PM_SUSPEND_TO_IDLE
-#define PM_SUSPEND_MAX		((__force suspend_state_t) 4)
+#define PM_SUSPEND_CG		((__force suspend_state_t) 4)
+#define PM_SUSPEND_PG		((__force suspend_state_t) 5)
+#define PM_SUSPEND_MAX		((__force suspend_state_t) 6)
 
 enum suspend_stat_step {
 	SUSPEND_FREEZE = 1,

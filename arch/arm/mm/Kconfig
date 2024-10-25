@@ -5,6 +5,38 @@ comment "Processor Type"
 # which CPUs we support in the kernel image, and the compiler instruction
 # optimiser behaviour.
 
+config CPU_ARMA7
+	bool "Support cortex-a7 processor"
+	select CPU_V7
+	select ARM_GIC
+	select HAVE_ARM_ARCH_TIMER
+
+config CPU_ARMA32
+	bool "Support cortex-a32 processor"
+	select CPU_V7
+	select ARM_GIC
+	select HAVE_ARM_ARCH_TIMER
+
+config CPU_ARMA53
+	bool "Support cortex-a53 processor"
+	select CPU_V8
+	select ARM_GIC
+	select HAVE_ARM_ARCH_TIMER
+
+config CPU_ARMA55
+	bool "Support cortex-a55 processor"
+	select CPU_V8
+	select ARM_GIC
+	select ARM_GIC_V3
+	select HAVE_ARM_ARCH_TIMER
+
+config CPU_ARMA73
+	bool "Support cortex-a73 processor"
+	select CPU_V8
+	select ARM_GIC
+	select ARM_GIC_V3
+	select HAVE_ARM_ARCH_TIMER
+
 # ARM7TDMI
 config CPU_ARM7TDMI
 	bool
@@ -22,7 +54,7 @@ config CPU_ARM7TDMI
 
 # ARM720T
 config CPU_ARM720T
-	bool
+	bool "Support ARM720T processor"
 	select CPU_32v4T
 	select CPU_ABRT_LV4T
 	select CPU_CACHE_V4
@@ -41,7 +73,7 @@ config CPU_ARM720T
 
 # ARM740T
 config CPU_ARM740T
-	bool
+	bool "Support ARM740T processor"
 	depends on !MMU
 	select CPU_32v4T
 	select CPU_ABRT_LV4T
@@ -74,7 +106,7 @@ config CPU_ARM9TDMI
 
 # ARM920T
 config CPU_ARM920T
-	bool
+	bool "Support ARM920T processor"
 	select CPU_32v4T
 	select CPU_ABRT_EV4T
 	select CPU_CACHE_V4WT
@@ -93,7 +125,7 @@ config CPU_ARM920T
 
 # ARM922T
 config CPU_ARM922T
-	bool
+	bool "Support ARM922T processor"
 	select CPU_32v4T
 	select CPU_ABRT_EV4T
 	select CPU_CACHE_V4WT
@@ -113,7 +145,7 @@ config CPU_ARM922T
 
 # ARM925T
 config CPU_ARM925T
-	bool
+	bool "Support ARM925T processor"
 	select CPU_32v4T
 	select CPU_ABRT_EV4T
 	select CPU_CACHE_V4WT
@@ -133,7 +165,7 @@ config CPU_ARM925T
 
 # ARM926T
 config CPU_ARM926T
-	bool
+	bool "Support ARM926T processor"
 	select CPU_32v5
 	select CPU_ABRT_EV5TJ
 	select CPU_CACHE_VIVT
@@ -170,7 +202,7 @@ config CPU_FA526
 
 # ARM940T
 config CPU_ARM940T
-	bool
+	bool "Support ARM940T processor"
 	depends on !MMU
 	select CPU_32v4T
 	select CPU_ABRT_NOMMU
@@ -189,7 +221,7 @@ config CPU_ARM940T
 
 # ARM946E-S
 config CPU_ARM946E
-	bool
+	bool "Support ARM946E-S processor"
 	depends on !MMU
 	select CPU_32v5
 	select CPU_ABRT_NOMMU
@@ -207,7 +239,7 @@ config CPU_ARM946E
 
 # ARM1020 - needs validating
 config CPU_ARM1020
-	bool
+	bool "Support ARM1020T (rev 0) processor"
 	select CPU_32v5
 	select CPU_ABRT_EV4T
 	select CPU_CACHE_V4WT
@@ -226,8 +258,8 @@ config CPU_ARM1020
 
 # ARM1020E - needs validating
 config CPU_ARM1020E
-	bool
-	depends on n
+	bool "Support ARM1020E processor"
+	default n
 	select CPU_32v5
 	select CPU_ABRT_EV4T
 	select CPU_CACHE_V4WT
@@ -240,7 +272,7 @@ config CPU_ARM1020E
 
 # ARM1022E
 config CPU_ARM1022
-	bool
+	bool "Support ARM1022E processor"
 	select CPU_32v5
 	select CPU_ABRT_EV4T
 	select CPU_CACHE_VIVT
@@ -259,7 +291,7 @@ config CPU_ARM1022
 
 # ARM1026EJ-S
 config CPU_ARM1026
-	bool
+	bool "Support ARM1026EJ-S processor"
 	select CPU_32v5
 	select CPU_ABRT_EV5T # But need Jazelle, but EV5TJ ignores bit 10
 	select CPU_CACHE_VIVT
@@ -375,7 +407,7 @@ config CPU_PJ4B
 
 # ARMv6
 config CPU_V6
-	bool
+	bool "Support ARM V6 processor"
 	select CPU_32v6
 	select CPU_ABRT_EV6
 	select CPU_CACHE_V6
@@ -389,7 +421,7 @@ config CPU_V6
 
 # ARMv6k
 config CPU_V6K
-	bool
+	bool "Support ARM V6K processor"
 	select CPU_32v6
 	select CPU_32v6K
 	select CPU_ABRT_EV6
@@ -402,9 +434,15 @@ config CPU_V6K
 	select CPU_THUMB_CAPABLE
 	select CPU_TLB_V6 if MMU
 
+# ARMv8
+config CPU_V8
+	bool "Support ARM V8 processor"
+	select CPU_32v8
+	select CPU_V7
+
 # ARMv7
 config CPU_V7
-	bool
+	bool "Support ARM V7 processor"
 	select CPU_32v6K
 	select CPU_32v7
 	select CPU_ABRT_EV7
@@ -482,6 +520,9 @@ config CPU_32v7
 	bool
 
 config CPU_32v7M
+	bool
+
+config CPU_32v8
 	bool
 
 # The abort model
@@ -985,8 +1026,9 @@ config MIGHT_HAVE_CACHE_L2X0
 	  inadvertently configuring a broken kernel.
 
 config CACHE_L2X0
-	bool "Enable the L2x0 outer cache controller" if MIGHT_HAVE_CACHE_L2X0
-	default MIGHT_HAVE_CACHE_L2X0
+	bool "Enable the L2x0 outer cache controller"
+	default CPU_HAS_L2C
+	depends on CPU_HAS_L2C
 	select OUTER_CACHE
 	select OUTER_CACHE_SYNC
 	help
@@ -1138,3 +1180,6 @@ config DEBUG_ALIGN_RODATA
 	  additional section-aligned split of rodata from kernel text so it
 	  can be made explicitly non-executable. This padding may waste memory
 	  space to gain the additional protection.
+
+config CPU_HAS_L2C
+	bool

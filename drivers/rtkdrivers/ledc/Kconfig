@@ -1,0 +1,13 @@
+config LEDC_RTK_WS28XXX
+	tristate "LED driver for WS28XXX"
+	select OF
+	select NEW_LEDS
+	select LEDS_CLASS
+	select LEDS_USER
+	select LEDS_TRIGGERS
+	select LEDS_TRIGGER_PATTERN
+
+	help
+	  Say Y to enable the ws28xxx LED driver for RTK LED devices.
+	  This supports the LED device WS28XXX.
+

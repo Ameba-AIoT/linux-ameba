@@ -1,0 +1,56 @@
+#
+# Realtek Semiconductor Corp.
+#
+
+# TODO: deprecate the configs from config.top
+
+# Cortex-A7
+config SOC_CPU_ARMA7
+        bool
+
+config SOC_CPU_ARMA32
+        bool
+        default y
+
+# CPU
+# TODO: select HW_HAS_USB if SOC_ENABLE_USB
+config CPU_ARMA7
+	bool
+	default y if SOC_CPU_ARMA7
+	select CPU_V7
+	select ARM_GIC
+	select HAVE_ARM_ARCH_TIMER
+	select CPU_LITTLE_ENDIAN
+	select HAVE_ARM_SCU
+	select HAVE_SMP
+	select SMP
+	select VFP
+	select NEON
+	select CPU_HAS_L2C
+	select HW_HAS_USB
+
+config CPU_ARMA32
+	bool
+	default y if SOC_CPU_ARMA32
+	select CPU_V8
+	select ARM_GIC
+	select HAVE_ARM_ARCH_TIMER
+	select CPU_LITTLE_ENDIAN
+	select HAVE_ARM_SCU
+	select HAVE_SMP
+	select SMP
+	select VFP
+	select NEON
+	select CPU_HAS_L2C
+	select HW_HAS_USB
+
+# CACHE
+config CPU_HAS_L2C
+	bool
+
+# BUS
+config HW_HAS_USB
+	bool
+
+config HW_HAS_PCI
+        bool

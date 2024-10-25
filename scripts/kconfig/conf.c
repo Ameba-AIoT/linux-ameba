@@ -658,11 +658,14 @@ int main(int ac, char **av)
 	case oldconfig:
 	case listnewconfig:
 	case syncconfig:
+		conf_set_all_new_symbols(def_default);
+#if 0
 		/* Update until a loop caused no more changes */
 		do {
 			conf_cnt = 0;
 			check_conf(&rootmenu);
 		} while (conf_cnt);
+#endif
 		break;
 	case olddefconfig:
 	default:

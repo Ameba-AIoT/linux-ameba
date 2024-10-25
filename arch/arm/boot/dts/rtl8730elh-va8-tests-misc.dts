@@ -1,0 +1,163 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for Misc test
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/dts-v1/;
+
+#include "rtl8730e.dtsi"
+#include "rtl8730e-spi-nand-256m.dtsi"
+
+/ {
+	memory {
+		device_type = "memory";
+		// DRAM base address should be 1MB-aligned.
+		reg = <0x60300000 0xFD00000>;  // 256MB -- exclude 3MB secure memory
+	};
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		// reserver 32M mem for drm graphics , from 0x61000000 to 0x63000000
+		mem_drm_reserved: drm_buffer@0x61000000 {
+			compatible = "shared-dma-pool";
+			no-map;
+			reg = <0x61000000 0x2000000>;
+			//linux,cma-default;
+		};
+	};
+};
+
+// Device nodes for test
+/ {
+	ocp {
+		gpio-test {
+			compatible = "realtek,ameba-gpio-test";
+			device_type = "gpio-dev";
+			rtk,test-gpios = <&gpiob 7 0>,<&gpiob 8 0>;
+			rtk,db_enable = "disable";
+			rtk,db_div_cnt = <0>;// de-bounce time = (db_div_cnt +1) * 2*30us.
+			wakeup-source;
+		};
+
+		gpio-uio-test {
+			compatible = "generic-uio";
+			interrupt-parent = <&gpiob>;
+			interrupts = <9 IRQ_TYPE_EDGE_BOTH>;
+			status = "okay";
+		};
+
+		dma-test {
+			compatible = "realtek,ameba-rtk-dmac-test";
+			dmas = <&dma 0>;
+			dma-names = "dma_test_cyclic";
+		};
+
+		rcc-test {
+			compatible = "realtek,ameba-rcc-test";
+			clocks = <&rcc RTK_CKE_ZGB>, <&rcc RTK_CKE_IRDA>,<&rcc RTK_CKD_PSRAM>, <&rcc RTK_CKSL_CTC>, <&clk_osc_131khz>;
+			clock-names = "cke_zgb","cke_irda","ckd_psram","cksl_ctc","osc_131k";
+		};
+	};
+
+	//GPIO UIO test
+	chosen {
+		bootargs = "console=ttyS0,1500000 earlycon psci=enable ubi.mtd=8 ubi.block=0,0 root=/dev/ubiblock0_0 rootfstype=squashfs,ubifs ubi.mtd=9 uio_pdrv_genirq.of_id=generic-uio";
+	};
+};
+
+// Configure peripherals, avoid pinmux conflicts.
+//
+// Pinmux groups for EV730EL0_3V0:
+// Group0: no conflict with other groups, enabled as default
+// Group1/Group2/Group3: conflict with each other, should be enabled/disabled by group
+// The groups are defined for Realtek internal QC test purpose, adjust the configuration
+// as per hardware implementation and user application.
+
+&aes {
+	status = "okay";
+};
+
+&hash {
+	status = "okay";
+};
+
+&captimer {
+	status = "okay";
+};
+
+&codec{
+	pinctrl-names = "default";
+	pinctrl-0 = <&audio_ext_amp_pins>;
+	ext_amp_gpio = <&gpiob 31 0>;
+};
+
+&ledc{
+	pinctrl-names = "default";
+	pinctrl-0 = <&ledc_pins>;
+	rtk,led-nums = <64>;
+	rtk,output-RGB-mode = <0>; // Refer to spec for details
+	rtk,data-tx-time0h = <0xC>;
+	rtk,data-tx-time0l = <0x18>;
+	rtk,data-tx-time1h = <0x18>;
+	rtk,data-tx-time1l = <0x18>;
+	rtk,refresh-time = <0x3FFF>;
+	rtk,auto-dma-thred = <64>;
+	dmas = <&dma 5>;
+	dma-names = "dma_leds_tx";
+	status = "okay";
+};
+
+&loguart{
+	wakeup-source;
+};
+
+&rtc{
+	wakeup-source;
+};
+
+&sdioh {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdioh_pins>;
+	status = "okay";
+};
+
+&timer1{
+	wakeup-source;
+};
+
+&timer2{
+	wakeup-source;
+};
+
+&timer3{
+	wakeup-source;
+};
+
+&timer4{
+	wakeup-source;
+};
+
+&timer5{
+	wakeup-source;
+};
+
+&timer8 {
+	status = "okay";
+};
+
+&pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_pins>;
+	status = "okay";
+};
+
+&usb {
+	dr_mode = "otg"; // "host", "peripheral", "otg"
+};
+
+&watchdog {
+	rtk,wdg-interrupt-mode = <0>;
+};

@@ -70,7 +70,7 @@ my (@stack, $re, $dre, $x, $xs, $funcre);
 	} elsif ($arch eq 'mips64') {
 		#8800402c:       67bdfff0        daddiu  sp,sp,-16
 		$re = qr/.*daddiu.*sp,sp,-(([0-9]{2}|[3-9])[0-9]{2})/o;
-	} elsif ($arch eq 'mips') {
+	} elsif ($arch eq 'mips' or $arch eq 'rlx') {
 		#88003254:       27bdffe0        addiu   sp,sp,-32
 		$re = qr/.*addiu.*sp,sp,-(([0-9]{2}|[3-9])[0-9]{2})/o;
 	} elsif ($arch eq 'nios2') {

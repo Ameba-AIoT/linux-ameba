@@ -1,0 +1,5 @@
+config BT_IOCTL_RTK_AMEBA
+	tristate "Realtek bluetooth ioctl driver"
+	help
+		This enables the realtek bluetooth ioctl affairs.
+

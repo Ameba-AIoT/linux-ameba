@@ -29,6 +29,7 @@ config USB_UHCI_BIG_ENDIAN_DESC
 menuconfig USB_SUPPORT
 	bool "USB support"
 	depends on HAS_IOMEM
+	depends on HW_HAS_USB
 	default y
 	---help---
 	  This option adds core support for Universal Serial Bus (USB).
@@ -36,10 +37,26 @@ menuconfig USB_SUPPORT
 
 if USB_SUPPORT
 
+# many non-PCI SOC chips embed OHCI
+config USB_ARCH_HAS_OHCI
+	bool "OHCI support"
+	default n
+
+# some non-PCI hcds implement EHCI
+config USB_ARCH_HAS_EHCI
+	bool "EHCI support"
+	default n
+
+# some non-PCI HCDs implement xHCI
+config USB_ARCH_HAS_XHCI
+	bool "XHCI support"
+	default n
+
 source "drivers/usb/common/Kconfig"
 
 config USB_ARCH_HAS_HCD
-	def_bool y
+	bool
+	default y
 
 config USB
 	tristate "Support for Host-side USB"

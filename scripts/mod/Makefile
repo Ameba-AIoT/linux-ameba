@@ -13,6 +13,11 @@ $(obj)/$(devicetable-offsets-file): $(obj)/devicetable-offsets.s FORCE
 
 targets += $(devicetable-offsets-file) devicetable-offsets.s
 
+TMPHOST		:= $(shell uname | tr '[:upper:]' '[:lower:]')
+ifeq ($(TMPHOST),darwin)
+HOSTLDFLAGS	+= -Wl,-no_pie
+endif
+
 # dependencies on generated files need to be listed explicitly
 
 $(obj)/modpost.o $(obj)/file2alias.o $(obj)/sumversion.o: $(obj)/elfconfig.h

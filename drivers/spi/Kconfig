@@ -230,6 +230,16 @@ config SPI_DW_MMIO
 	tristate "Memory-mapped io interface driver for DW SPI core"
 	depends on SPI_DESIGNWARE
 
+config SPI_SHEIPA
+	bool "Realtek SHEIPA SPI Controller"
+	help
+	  This is the driver for the SHEIPA SPI Controller.
+
+config SPI_REALTEK_RXI312
+	bool "Realtek SPI RXI312 Controller"
+	help
+	  This is the driver for the Realtek SPI RXI312 Controller.
+
 config SPI_DLN2
        tristate "Diolan DLN-2 USB SPI adapter"
        depends on MFD_DLN2

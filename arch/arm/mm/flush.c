@@ -38,15 +38,15 @@ EXPORT_SYMBOL(arm_heavy_mb);
 static void flush_pfn_alias(unsigned long pfn, unsigned long vaddr)
 {
 	unsigned long to = FLUSH_ALIAS_START + (CACHE_COLOUR(vaddr) << PAGE_SHIFT);
-	const int zero = 0;
 
 	set_top_pte(to, pfn_pte(pfn, PAGE_KERNEL));
 
-	asm(	"mcrr	p15, 0, %1, %0, c14\n"
-	"	mcr	p15, 0, %2, c7, c10, 4"
+	asm(	"mcrr	p15, 0, %1, %0, c14"
 	    :
-	    : "r" (to), "r" (to + PAGE_SIZE - 1), "r" (zero)
+	    : "r" (to), "r" (to + PAGE_SIZE - 1)
 	    : "cc");
+
+	dsb(0);
 }
 
 static void flush_icache_alias(unsigned long pfn, unsigned long vaddr, unsigned long len)
@@ -68,11 +68,12 @@ void flush_cache_mm(struct mm_struct *mm)
 	}
 
 	if (cache_is_vipt_aliasing()) {
-		asm(	"mcr	p15, 0, %0, c7, c14, 0\n"
-		"	mcr	p15, 0, %0, c7, c10, 4"
+		asm(	"mcr	p15, 0, %0, c7, c14, 0"
 		    :
 		    : "r" (0)
 		    : "cc");
+
+		dsb(0);
 	}
 }
 
@@ -84,11 +85,12 @@ void flush_cache_range(struct vm_area_struct *vma, unsigned long start, unsigned
 	}
 
 	if (cache_is_vipt_aliasing()) {
-		asm(	"mcr	p15, 0, %0, c7, c14, 0\n"
-		"	mcr	p15, 0, %0, c7, c10, 4"
+		asm(	"mcr	p15, 0, %0, c7, c14, 0"
 		    :
 		    : "r" (0)
 		    : "cc");
+
+		dsb(0);
 	}
 
 	if (vma->vm_flags & VM_EXEC)

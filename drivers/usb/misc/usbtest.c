@@ -2619,6 +2619,31 @@ usbtest_do_ioctl(struct usb_interface *intf, struct usbtest_param_32 *param)
 			ERROR(dev, "toggle sync failed, iterations left %d\n",
 			      i);
 		break;
+	/* Test with loopback */
+	case 30:
+		if (dev->out_pipe == 0 || dev->in_pipe == 0)
+			break;
+		dev_info(&intf->dev,
+				"TEST 30:  loopback %d bytes %u times\n",
+				param->length, param->iterations);
+		urb = simple_alloc_urb(udev, dev->out_pipe, param->length, 0);
+		if (!urb) {
+			retval = -ENOMEM;
+			break;
+		}
+		/* FIRMWARE:  bulk sink (maybe accepts short writes) */
+		retval = simple_io(dev, urb, param->iterations, 0, 0, "test30");
+		simple_free_urb(urb);
+
+		urb = simple_alloc_urb(udev, dev->in_pipe, param->length, 0);
+		if (!urb) {
+			retval = -ENOMEM;
+			break;
+		}
+		/* FIRMWARE:  bulk source (maybe generates short writes) */
+		retval = simple_io(dev, urb, param->iterations, 0, 0, "test30");
+		simple_free_urb(urb);
+		break;
 	}
 	return retval;
 }

@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for RCC
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+#include <dt-bindings/realtek/clock/realtek-ameba-clock.h>
+
+/ {
+	clocks {	/* Fixed rate clocks */
+		clk_xtal_40mhz: crystal_40mhz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <40000000>;
+			clock-output-names = "XTAL_40M";
+		};
+		
+		clk_xtal_lps: crystal_lps {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <3125000>;
+			clock-output-names = "XTAL_LPS";
+		};
+		
+		clk_xtal_32khz: crystal_32khz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <32000000>;
+			clock-output-names = "XTAL_32K";
+		};
+		
+		clk_ext_32khz: ext_32khz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <32000000>;
+			clock-output-names = "EXT_32K";
+		};
+		
+		clk_osc_4mhz: oscillator_4mhz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <4000000>;
+			clock-output-names = "OSC_4M";
+		};
+		
+		clk_osc_2mhz: oscillator_2mhz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <2000000>;
+			clock-output-names = "OSC_2M";
+		};
+
+		clk_osc_131khz: oscillator_131khz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <131000>;
+			clock-output-names = "OSC_131K";
+		};
+		
+		clk_osc_100khz: oscillator_100khz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000>;
+			clock-output-names = "OSC_100K";
+		};
+
+		clk_ddr_pll_533mhz: ddr_pll_533mhz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <533000000>;
+			clock-output-names = "DDR_PLL_533M";
+		};
+		
+		clk_np_syspll: np_syspll_600mhz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <600000000>;
+			clock-output-names = "NP_SYSPLL";
+		};
+		
+		clk_i2s_pll0: i2s_pll0 {	/* 98.304MHz */
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <98304000>;
+			clock-output-names = "I2S_PLL0";
+		};
+		
+		clk_i2s_pll1: i2s_pll1 {	/* 45.1584MHz */
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <45158400>;
+			clock-output-names = "I2S_PLL1";
+		};
+		
+		clk_i2s_pll2: i2s_pll2 {	/* 24.576MHz */
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <24576000>;
+			clock-output-names = "I2S_PLL2";
+		};
+	};
+	
+	ocp {
+		rcc: rcc@41000000 {
+			compatible = "realtek,ameba-rcc";
+			#reset-cells = <1>;
+			#clock-cells = <1>;
+			reg = <0x42008000 0x200>,
+				<0x42008200 0x200>,
+				<0x41000200 0x200>,
+				<0x41000000 0x200>;
+		};
+	};
+};
+

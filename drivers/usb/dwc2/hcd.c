@@ -55,6 +55,9 @@
 
 #include "core.h"
 #include "hcd.h"
+#if defined(CONFIG_USB_RTK_AMEBA_USB20PHY) || defined(CONFIG_USB_RTK_AMEBA_USB20PHY_MODULE)
+#include "phy-rtk-usb.h"
+#endif
 
 static void dwc2_port_resume(struct dwc2_hsotg *hsotg);
 
@@ -5236,6 +5239,14 @@ int dwc2_hcd_init(struct dwc2_hsotg *hsotg)
 	retval = usb_add_hcd(hcd, hsotg->irq, IRQF_SHARED);
 	if (retval < 0)
 		goto error4;
+
+#if defined(CONFIG_USB_RTK_AMEBA_USB20PHY) || defined(CONFIG_USB_RTK_AMEBA_USB20PHY_MODULE)
+	retval = rtk_phy_calibrate(hsotg);
+	if (retval != 0) {
+		dev_err(hsotg->dev,"PHY calibration fail\n");
+		goto error4;
+	}
+#endif
 
 	device_wakeup_enable(hcd->self.controller);
 

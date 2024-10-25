@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config RTC_RTK_AMEBA
+        tristate "RTC driver"
+		select RTC_CLASS
+		select RTC_INTF_SYSFS
+		select RTC_INTF_PROC
+		select RTC_INTF_DEV
+        help
+          Choose yes to support Real Time Clock driver for Realtek Ameba SoCs.

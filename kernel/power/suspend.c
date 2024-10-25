@@ -37,12 +37,16 @@ const char * const pm_labels[] = {
 	[PM_SUSPEND_TO_IDLE] = "freeze",
 	[PM_SUSPEND_STANDBY] = "standby",
 	[PM_SUSPEND_MEM] = "mem",
+	[PM_SUSPEND_CG] = "cg",
+	[PM_SUSPEND_PG] = "pg",
 };
 const char *pm_states[PM_SUSPEND_MAX];
 static const char * const mem_sleep_labels[] = {
 	[PM_SUSPEND_TO_IDLE] = "s2idle",
 	[PM_SUSPEND_STANDBY] = "shallow",
 	[PM_SUSPEND_MEM] = "deep",
+	[PM_SUSPEND_CG] = "cg",
+	[PM_SUSPEND_PG] = "pg",
 };
 const char *mem_sleep_states[PM_SUSPEND_MAX];
 
@@ -172,11 +176,16 @@ void __init pm_states_init(void)
 	/* "mem" and "freeze" are always present in /sys/power/state. */
 	pm_states[PM_SUSPEND_MEM] = pm_labels[PM_SUSPEND_MEM];
 	pm_states[PM_SUSPEND_TO_IDLE] = pm_labels[PM_SUSPEND_TO_IDLE];
+	pm_states[PM_SUSPEND_CG] = pm_labels[PM_SUSPEND_CG];
+	pm_states[PM_SUSPEND_PG] = pm_labels[PM_SUSPEND_PG];
 	/*
 	 * Suspend-to-idle should be supported even without any suspend_ops,
 	 * initialize mem_sleep_states[] accordingly here.
 	 */
 	mem_sleep_states[PM_SUSPEND_TO_IDLE] = mem_sleep_labels[PM_SUSPEND_TO_IDLE];
+	mem_sleep_states[PM_SUSPEND_MEM] = mem_sleep_labels[PM_SUSPEND_MEM];
+	mem_sleep_states[PM_SUSPEND_CG] = mem_sleep_labels[PM_SUSPEND_CG];
+	mem_sleep_states[PM_SUSPEND_PG] = mem_sleep_labels[PM_SUSPEND_PG];
 }
 
 static int __init mem_sleep_default_setup(char *str)

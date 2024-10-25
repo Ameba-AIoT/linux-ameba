@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: GPL-2.0
 config ARM
 	bool
 	default y
@@ -26,7 +25,7 @@ config ARM
 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
 	select ARCH_HAVE_CUSTOM_GPIO_H
 	select ARCH_HAS_GCOV_PROFILE_ALL
-	select ARCH_KEEP_MEMBLOCK
+	select ARCH_KEEP_MEMBLOCK if HAVE_ARCH_PFN_VALID || KEXEC
 	select ARCH_MIGHT_HAVE_PC_PARPORT
 	select ARCH_NO_SG_CHAIN if !ARM_HAS_SG_CHAIN
 	select ARCH_OPTIONAL_KERNEL_RWX if ARCH_HAS_STRICT_KERNEL_RWX
@@ -85,7 +84,6 @@ config ARM
 	select HAVE_FTRACE_MCOUNT_RECORD if !XIP_KERNEL
 	select HAVE_FUNCTION_GRAPH_TRACER if !THUMB2_KERNEL && !CC_IS_CLANG
 	select HAVE_FUNCTION_TRACER if !XIP_KERNEL && (CC_IS_GCC || CLANG_VERSION >= 100000)
-	select HAVE_FUTEX_CMPXCHG if FUTEX
 	select HAVE_GCC_PLUGINS
 	select HAVE_HW_BREAKPOINT if PERF_EVENTS && (CPU_V6 || CPU_V6K || CPU_V7)
 	select HAVE_IDE if PCI || ISA || PCMCIA
@@ -119,6 +117,7 @@ config ARM
 	select OLD_SIGSUSPEND3
 	select PCI_SYSCALL if PCI
 	select PERF_USE_VMALLOC
+	select REFCOUNT_FULL
 	select RTC_LIB
 	select SYS_SUPPORTS_APM_EMULATION
 	# Above selects are sorted alphabetically; please add new ones
@@ -265,6 +264,7 @@ config NEED_MACH_MEMORY_H
 config PHYS_OFFSET
 	hex "Physical address of main memory" if MMU
 	depends on !ARM_PATCH_PHYS_VIRT
+	default 0x0 if MMU
 	default DRAM_BASE if !MMU
 	default 0x00000000 if ARCH_EBSA110 || \
 			ARCH_FOOTBRIDGE || \
@@ -309,8 +309,41 @@ config ARCH_MMAP_RND_BITS_MAX
 #
 choice
 	prompt "ARM system type"
-	default ARM_SINGLE_ARMV7M if !MMU
-	default ARCH_MULTIPLATFORM if MMU
+	default ARCH_AMEBA_M if !MMU
+	default ARCH_AMEBA if MMU
+
+config ARCH_AMEBA_M
+	bool "Realtek ARM platform"
+	depends on !MMU
+	select ARCH_WANT_OPTIONAL_GPIOLIB
+	select ARM_NVIC
+	select AUTO_ZRELADDR
+	select CLKSRC_OF
+	select COMMON_CLK
+	select GENERIC_CLOCKEVENTS
+	select NO_IOPORT_MAP
+	select SPARSE_IRQ
+	select USE_OF
+	select ARMV7M_SYSTICK
+	select DW_APB_TIMER_OF
+
+config ARCH_AMEBA
+	bool "Realtek ARM platform"
+	depends on MMU
+	select COMMON_CLK
+	select CLKDEV_LOOKUP
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select USE_OF
+
+config ARCH_AMEBASMART
+	bool "Realtek AmebaSmart platform"
+	depends on MMU
+	select COMMON_CLK
+	select CLKDEV_LOOKUP
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select USE_OF
 
 config ARCH_MULTIPLATFORM
 	bool "Allow multiple platforms to be selected"
@@ -507,10 +540,8 @@ config ARCH_S3C24XX
 	select HAVE_S3C2410_WATCHDOG if WATCHDOG
 	select HAVE_S3C_RTC if RTC_CLASS
 	select NEED_MACH_IO_H
-	select S3C2410_WATCHDOG
 	select SAMSUNG_ATAGS
 	select USE_OF
-	select WATCHDOG
 	help
 	  Samsung S3C2410, S3C2412, S3C2413, S3C2416, S3C2440, S3C2442, S3C2443
 	  and S3C2450 SoCs based systems, such as the Simtec Electronics BAST
@@ -520,6 +551,7 @@ config ARCH_S3C24XX
 config ARCH_OMAP1
 	bool "TI OMAP1"
 	depends on MMU
+	select ARCH_HAS_HOLES_MEMORYMODEL
 	select ARCH_OMAP
 	select CLKDEV_LOOKUP
 	select CLKSRC_MMIO
@@ -746,6 +778,8 @@ source "arch/arm/mach-vt8500/Kconfig"
 source "arch/arm/mach-zx/Kconfig"
 
 source "arch/arm/mach-zynq/Kconfig"
+
+source "arch/arm/mach-amebasmart/Kconfig"
 
 # ARMv7-M architecture
 config ARCH_EFM32
@@ -1253,8 +1287,17 @@ config HAVE_ARM_ARCH_TIMER
 	help
 	  This option enables support for the ARM architected timer
 
+config HAVE_ARM_GLOBAL_TIMER
+	bool "Global timer support"
+	depends on CPU_V7
+	select ARM_GLOBAL_TIMER
+	select GENERIC_CLOCKEVENTS
+	help
+	  This option enables support for the ARM global timer
+
 config HAVE_ARM_TWD
 	bool
+	depends on SMP
 	help
 	  This options enables support for the ARM timer and watchdog unit
 
@@ -1479,9 +1522,8 @@ config ARM_PATCH_IDIV
 	  code to do integer division.
 
 config AEABI
-	bool "Use the ARM EABI to compile the kernel" if !CPU_V7 && \
-		!CPU_V7M && !CPU_V6 && !CPU_V6K && !CC_IS_CLANG
-	default CPU_V7 || CPU_V7M || CPU_V6 || CPU_V6K || CC_IS_CLANG
+	bool "Use the ARM EABI to compile the kernel"
+	default y
 	help
 	  This option allows for the kernel to be compiled using the latest
 	  ARM ABI (aka EABI).  This is only useful if you are using a user
@@ -1498,6 +1540,7 @@ config AEABI
 config OABI_COMPAT
 	bool "Allow old ABI binaries to run with this kernel (EXPERIMENTAL)"
 	depends on AEABI && !THUMB2_KERNEL
+	default n
 	help
 	  This option preserves the old syscall interface along with the
 	  new (ARM EABI) one. It also provides a compatibility layer to
@@ -1516,6 +1559,9 @@ config OABI_COMPAT
 	  UNPREDICTABLE (in fact it can be predicted that it won't work
 	  at all). If in doubt say N.
 
+config ARCH_HAS_HOLES_MEMORYMODEL
+	bool
+
 config ARCH_SPARSEMEM_ENABLE
 	bool
 
@@ -1523,7 +1569,7 @@ config ARCH_SPARSEMEM_DEFAULT
 	def_bool ARCH_SPARSEMEM_ENABLE
 
 config HAVE_ARCH_PFN_VALID
-	def_bool y
+	def_bool ARCH_HAS_HOLES_MEMORYMODEL || !SPARSEMEM
 
 config HIGHMEM
 	bool "High Memory Support"
@@ -1837,6 +1883,7 @@ config CMDLINE
 choice
 	prompt "Kernel command line type" if CMDLINE != ""
 	default CMDLINE_FROM_BOOTLOADER
+	depends on ATAGS
 
 config CMDLINE_FROM_BOOTLOADER
 	bool "Use bootloader kernel arguments if available"

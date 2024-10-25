@@ -751,8 +751,10 @@ static void xhci_stop(struct usb_hcd *hcd)
 				__func__);
 	}
 
+#ifdef CONFIG_USB_XHCI_PCI
 	if (xhci->quirks & XHCI_AMD_PLL_FIX)
 		usb_amd_dev_put();
+#endif
 
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
 			"// Disabling event ring interrupts");

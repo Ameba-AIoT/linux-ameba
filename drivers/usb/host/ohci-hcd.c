@@ -78,7 +78,9 @@ static const char	hcd_name [] = "ohci_hcd";
 #define	IO_WATCHDOG_OFF		0xffffff00
 
 #include "ohci.h"
+#ifdef CONFIG_USB_OHCI_PCI
 #include "pci-quirks.h"
+#endif
 
 static void ohci_dump(struct ohci_hcd *ohci);
 static void ohci_stop(struct usb_hcd *hcd);
@@ -995,8 +997,10 @@ static void ohci_stop (struct usb_hcd *hcd)
 
 	ohci_dump(ohci);
 
+#ifdef CONFIG_USB_OHCI_PCI
 	if (quirk_nec(ohci))
 		flush_work(&ohci->nec_work);
+#endif
 	del_timer_sync(&ohci->io_watchdog);
 	ohci->prev_frame_no = IO_WATCHDOG_OFF;
 
@@ -1005,8 +1009,10 @@ static void ohci_stop (struct usb_hcd *hcd)
 	free_irq(hcd->irq, hcd);
 	hcd->irq = 0;
 
+#ifdef CONFIG_USB_OHCI_PCI
 	if (quirk_amdiso(ohci))
 		usb_amd_dev_put();
+#endif
 
 	remove_debug_files (ohci);
 	ohci_mem_cleanup (ohci);
@@ -1026,7 +1032,7 @@ static void ohci_stop (struct usb_hcd *hcd)
 
 /*-------------------------------------------------------------------------*/
 
-#if defined(CONFIG_PM) || defined(CONFIG_USB_PCI)
+#if defined(CONFIG_PM) || defined(CONFIG_USB_OHCI_PCI)
 
 /* must not be called from interrupt context */
 int ohci_restart(struct ohci_hcd *ohci)

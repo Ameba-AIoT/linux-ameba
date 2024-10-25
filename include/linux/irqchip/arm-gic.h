@@ -125,6 +125,26 @@
 #define GICV_PMR_PRIORITY_SHIFT		3
 #define GICV_PMR_PRIORITY_MASK		(0x1f << GICV_PMR_PRIORITY_SHIFT)
 
+#define GIC_IRQ_BASE			0
+#define GIC_IRQ_OFS			27
+
+/* armv7a generic PPI */
+#define GIC_IRQ_LFIQ			28
+#define GIC_IRQ_LIRQ			31
+
+/* cortex-a9 timer PPI */
+#define GIC_IRQ_GTIMER			27
+#define GIC_IRQ_PTIMER			29
+#define GIC_IRQ_WDTIMER			30
+
+/* cortex-a7 timer PPI */
+#define GIC_IRQ_HYP_TIMER		26
+#define GIC_IRQ_VIRT_TIMER		27
+#define GIC_IRQ_PHYS_NSTIMER		29
+#define GIC_IRQ_PHYS_STIMER		30
+
+#define GIC_IRQ_SPI(n)			(32+(n))
+
 #ifndef __ASSEMBLY__
 
 #include <linux/irqdomain.h>

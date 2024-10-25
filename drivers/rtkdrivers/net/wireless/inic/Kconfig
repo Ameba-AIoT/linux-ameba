@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Serial device configuration
+#
+
+config INIC_RTK_AMEBA
+	bool "IPC INIC"
+	depends on IPC_RTK_AMEBA
+	default n
+	help
+	  Driver for RTK INIC

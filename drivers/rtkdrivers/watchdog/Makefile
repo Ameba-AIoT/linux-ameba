@@ -1,0 +1,1 @@
+obj-$(CONFIG_WATCHDOG_RTK_AMEBA) += realtek_wdg.o

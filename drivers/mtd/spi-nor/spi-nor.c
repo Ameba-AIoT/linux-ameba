@@ -22,6 +22,9 @@
 #include <linux/sched/task_stack.h>
 #include <linux/spi/flash.h>
 #include <linux/mtd/spi-nor.h>
+#ifdef CONFIG_SPI_SHEIPA
+#include "../../spi/spi-sheipa.h"
+#endif
 
 /* Define max times to check status register before we give up. */
 
@@ -5040,6 +5043,14 @@ static int spi_nor_probe(struct spi_mem *spimem)
 		if (!nor->bouncebuf)
 			return -ENOMEM;
 	}
+
+#if defined(CONFIG_SPI_SHEIPA) && !defined(CONFIG_SPI_REALTEK_RXI312)
+	/* realtek,spi-rxi312 does not need this config */
+	ret = sheipa_spi_config(spi, nor);
+
+	if (ret)
+		return ret;
+#endif
 
 	return mtd_device_register(&nor->mtd, data ? data->parts : NULL,
 				   data ? data->nr_parts : 0);

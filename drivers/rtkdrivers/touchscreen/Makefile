@@ -1,0 +1,1 @@
+obj-$(CONFIG_TOUCHSCREEN_RTK_AMEBA)	+= cst328.o

@@ -54,6 +54,7 @@
 
 #define DWC2_TRACE_SCHEDULER		no_printk
 #define DWC2_TRACE_SCHEDULER_VB		no_printk
+#define DWC2_PREDICT_NEXTSEQ		1
 
 /* Detailed scheduler tracing, but won't overwhelm console */
 #define dwc2_sch_dbg(hsotg, fmt, ...)					\
@@ -1192,7 +1193,11 @@ struct dwc2_hsotg {
 	struct dwc2_dma_desc *ctrl_in_desc;
 	dma_addr_t ctrl_out_desc_dma;
 	struct dwc2_dma_desc *ctrl_out_desc;
-
+#ifdef DWC2_PREDICT_NEXTSEQ
+	u8 start_predict;
+	u8 nextep_seq[MAX_EPS_CHANNELS];
+	u8 first_in_nextep_seq;
+#endif
 	struct usb_gadget gadget;
 	unsigned int enabled:1;
 	unsigned int connected:1;

@@ -1,0 +1,117 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek generic DTS
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/dts-v1/;
+
+#include "rtl8730e.dtsi"
+#include "rtl8730e-spi-nor.dtsi"
+
+/ {
+	memory {
+		device_type = "memory";
+		// DRAM base address should be 1MB-aligned.
+		reg = <0x60300000 0x3D00000>;  // 64MB -- exclude 3MB secure memory
+	};
+};
+
+// Configure pinmux, avoid the pin conflict.
+
+&codec{
+	pinctrl-names = "default";
+	pinctrl-0 = <&audio_ext_amp_pins>;
+	ext_amp_gpio = <&gpiob 31 0>;
+};
+
+&i2c0{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pins>;
+	status = "okay";
+};
+
+&i2c1{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+};
+
+&i2c2{
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+	status = "disabled";
+};
+
+&sdioh {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdioh_pins>;
+	status = "okay";
+};
+
+&spi0{
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins>;
+	status = "disabled";
+};
+
+&spi1{
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pins>;
+	status = "disabled";
+};
+
+&ir{
+	pinctrl-names = "default";
+	pinctrl-0 = <&ir_pins>;
+	status = "disabled";
+};
+
+&loguart{
+	wakeup-source;
+};
+
+&rtc{
+	wakeup-source;
+};
+
+&sport2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2s2_pins>;
+	rtk,sport-multi-io = <1>;
+	rtk,sport-mode = <1>;
+	rtk,sport-mclk-multiplier = <256>;
+};
+
+&sport3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2s3_pins>;
+	rtk,sport-multi-io = <1>;
+	rtk,sport-mode = <0>;
+	rtk,sport-mclk-multiplier = <0>;
+};
+
+&timer1{
+	wakeup-source;
+};
+
+&timer2{
+	wakeup-source;
+};
+
+&timer3{
+	wakeup-source;
+};
+
+&timer4{
+	wakeup-source;
+};
+
+&timer5{
+	wakeup-source;
+};
+
+&usb {
+	dr_mode = "otg"; // "host", "peripheral", "otg"
+};

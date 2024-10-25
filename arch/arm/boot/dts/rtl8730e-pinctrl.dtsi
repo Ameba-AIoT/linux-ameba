@@ -1,0 +1,310 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for pinctrl
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/realtek/pinctrl/realtek-ameba-pinfunc.h>
+
+/ {
+	ocp {
+		pinctrl: pinctrl@42008A00 {
+			compatible = "realtek,ameba-pinctrl";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x42008A00 0x120>;
+
+			audio_ext_amp_pins:audio_ext_pin@0 { // Fixed for EV730EL0_3V0 demo board
+				pins {
+					pinmux = <REALTEK_PINMUX('B',31, GPIO)>;
+					bias-disable;	//bias-disable/bias-pull-up/bias-pull-down(no pull/pull up/pull down)
+				};
+			};
+
+			wifi_ant_sel: ant_sel@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('A', 15, GPIO)>,
+						 <REALTEK_PINMUX('A', 16, GPIO)>;
+					bbias-disable;
+				};
+			};
+
+			captouch_pins: captouch@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('A', 0, CAPTOUCH_AUX_ADC)>, // TOUCH0_ADC0
+							<REALTEK_PINMUX('A', 1, CAPTOUCH_AUX_ADC)>,  // TOUCH1_ADC1
+							<REALTEK_PINMUX('A', 2, CAPTOUCH_AUX_ADC)>,  // TOUCH2_ADC2
+							<REALTEK_PINMUX('A', 3, CAPTOUCH_AUX_ADC)>,  // TOUCH3_ADC3
+							<REALTEK_PINMUX('A', 4, CAPTOUCH_AUX_ADC)>,  // TOUCH4_ADC4
+							<REALTEK_PINMUX('A', 5, CAPTOUCH_AUX_ADC)>,  // TOUCH5_ADC5
+							<REALTEK_PINMUX('A', 6, CAPTOUCH_AUX_ADC)>,  // TOUCH6
+							<REALTEK_PINMUX('A', 7, CAPTOUCH_AUX_ADC)>,  // TOUCH7
+							<REALTEK_PINMUX('A', 8, CAPTOUCH_AUX_ADC)>;  // GTOUCH
+					bias-disable;
+				};
+			};
+
+			dmic_pins_a: dmic@0 { // Fixed for EV730EL0_3V0 demo board
+				pins {
+					pinmux = <REALTEK_PINMUX('B', 21, DMIC)>, // DMIC0_DATA0
+							<REALTEK_PINMUX('B', 22, DMIC)>;  // DMIC0_CLK
+					bias-disable;	//bias-disable/bias-pull-up/bias-pull-down(no pull/pull up/pull down)
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			dmic_pins_b: dmic@1 {
+				pins {
+					pinmux = <REALTEK_PINMUX('B', 16, DMIC)>, // DMIC0_DATA3
+							<REALTEK_PINMUX('B', 17, DMIC)>,  // DMIC0_DATA2
+							<REALTEK_PINMUX('B', 18, DMIC)>,  // DMIC0_DATA1
+							<REALTEK_PINMUX('B', 19, DMIC)>,  // DMIC0_DATA0
+							<REALTEK_PINMUX('B', 20, DMIC)>;  // DMIC0_CLK
+					bias-disable;	//bias-disable/bias-pull-up/bias-pull-down(no pull/pull up/pull down)
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			drm_disable_swd_pins:drm_swd@0 { // Fixed for EV730EL0_3V0 demo board
+				pins {
+					pinmux = <REALTEK_PINMUX('A',14, GPIO)>;
+					bias-disable;	//bias-disable/bias-pull-up/bias-pull-down(no pull/pull up/pull down)
+					swd-disable;
+				};
+			};
+
+			ir_pins: ir@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('B', 11, IR)>, // IR_TX
+							<REALTEK_PINMUX('B', 10, IR)>;  // IR_RX
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			i2c0_pins: i2c0@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('A', 0, I2C)>, // I2C0_SDA
+							<REALTEK_PINMUX('A', 1, I2C)>;  // I2C0_SCL
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			i2c1_pins: i2c1@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('B', 12, I2C)>, // I2C1_SDA
+							<REALTEK_PINMUX('B', 13, I2C)>;  // I2C1_SCL
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			i2c2_pins: i2c2@0 { // Fixed for EV730EL0_3V0 demo board
+				pins {
+					pinmux = <REALTEK_PINMUX('B', 10, I2C)>, // I2C2_SDA
+							<REALTEK_PINMUX('B', 11, I2C)>;  // I2C2_SCL
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			i2s2_pins: i2s2@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('B', 14, I2S2)>, // I2S2_MCLK
+							<REALTEK_PINMUX('B', 15, I2S2)>,  // I2S2_BCLK
+							<REALTEK_PINMUX('B', 16, I2S2)>,  // I2S2_WS
+							<REALTEK_PINMUX('B', 17, I2S2)>,  // I2S2_DIN0
+							<REALTEK_PINMUX('B', 18, I2S2)>,  // I2S2_DIN1
+							<REALTEK_PINMUX('B', 19, I2S2)>,  // I2S2_DIN2
+							<REALTEK_PINMUX('B', 20, I2S2)>;  // I2S2_DIN3
+					bias-disable;	//bias-disable/bias-pull-up/bias-pull-down(no pull/pull up/pull down)
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			i2s3_pins: i2s3@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('B', 7, I2S3)>, // I2S3_MCLK
+							<REALTEK_PINMUX('B', 8, I2S3)>,  // I2S3_BCLK
+							<REALTEK_PINMUX('B', 9, I2S3)>,  // I2S3_WS
+							<REALTEK_PINMUX('A', 2, I2S3)>,  // I2S3_DOUT0
+							<REALTEK_PINMUX('A', 3, I2S3)>,  // I2S3_DOUT1
+							<REALTEK_PINMUX('A', 4, I2S3)>,  // I2S3_DOUT2
+							<REALTEK_PINMUX('A', 5, I2S3)>;  // I2S3_DOUT3
+					bias-disable;	//bias-disable/bias-pull-up/bias-pull-down(no pull/pull up/pull down)
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			ledc_pins: ledc@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('A', 6, LEDC)>;
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			pwm_pins: pwm@0 {
+				pins1 {
+					pinmux = <REALTEK_PINMUX('B', 14, PWM)>, // HS_PWM0
+						 <REALTEK_PINMUX('B', 15, PWM)>,     // HS_PWM1
+						 <REALTEK_PINMUX('B', 16, PWM)>,     // HS_PWM2
+						 <REALTEK_PINMUX('A', 11, PWM)>,     // HS_PWM3
+						 <REALTEK_PINMUX('A', 12, PWM)>;     // HS_PWM4
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+				pins2 {
+					pinmux = <REALTEK_PINMUX('A', 13, PWM)>;  // HS_PWM5
+					bias-pull-up;
+					swd-disable;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			sdioh_pins: sdioh@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('B', 27, SDIO)>, // SD_CMD
+						 <REALTEK_PINMUX('B', 28, SDIO)>,     // SD_CLK
+						 <REALTEK_PINMUX('C', 0, SDIO)>,      // SD_CD
+						 <REALTEK_PINMUX('B', 29, SDIO)>,     // SD_D0
+						 <REALTEK_PINMUX('B', 25, SDIO)>,     // SD_D1
+						 <REALTEK_PINMUX('B', 26, SDIO)>,     // SD_D2
+						 <REALTEK_PINMUX('B', 30, SDIO)>;     // SD_D3
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			spi0_pins: spi0@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('B', 18, SPI)>,   // SPI0_CLK
+							<REALTEK_PINMUX('B', 19, SPI)>,   // SPI0_MOSI
+							<REALTEK_PINMUX('B', 20, SPI)>;   // SPI0_MISO
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			spi1_pins: spi1@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('A', 2, SPI)>,  // SPI1_CS
+							<REALTEK_PINMUX('A', 3, SPI)>,  // SPI1_CLK
+							<REALTEK_PINMUX('A', 4, SPI)>,  // SPI1_MISO
+							<REALTEK_PINMUX('A', 5, SPI)>;  // SPI1_MOSI
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			uart0_pins: uart0@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('A', 15, LOG_UART_RTS_CTS)>, // UART0_CTS
+							<REALTEK_PINMUX('A', 16, LOG_UART_RTS_CTS)>,  // UART0_RTS
+							<REALTEK_PINMUX('A', 2, UART_DATA)>,          // UART0_RXD
+							<REALTEK_PINMUX('A', 3, UART_DATA)>;          // UART0_TXD
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			uart1_pins: uart1@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('B', 12, LOG_UART_RTS_CTS)>, // UART1_CTS
+							<REALTEK_PINMUX('B', 13, LOG_UART_RTS_CTS)>,  // UART1_RTS
+							<REALTEK_PINMUX('B', 10, UART_DATA)>,         // UART1_RXD
+							<REALTEK_PINMUX('B', 11, UART_DATA)>;         // UART1_TXD
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			uart2_pins: uart2@0 {
+				pins {
+					pinmux = <REALTEK_PINMUX('A', 11, UART_DATA)>,         // UART2_RXD
+							<REALTEK_PINMUX('A', 12, UART_DATA)>;          // UART2_TXD
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+			dw3000_pins: dw3000_pins {
+				pins1 {
+					pinmux = <REALTEK_PINMUX('A', 0, GPIO)>; // Wakeup
+					bias-disable;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+				pins2 {
+					pinmux = <REALTEK_PINMUX('A', 1, GPIO)>;  // IRQ
+					bias-pull-down;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+				pins3 {
+					pinmux = <REALTEK_PINMUX('A', 2, GPIO)>;  // RST
+					bias-pull-up;
+					slew-rate = <0>;
+					drive-strength = <0>;
+				};
+			};
+
+		};
+
+		gpioa: gpio@4200D000 {
+			compatible = "realtek,ameba-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			reg = <0x4200D000 0x400>;
+			rtk,gpio-bank = <0>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc RTK_CKE_GPIO>;
+		};
+
+		gpiob: gpio@4200D400 {
+			compatible = "realtek,ameba-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			reg = <0x4200D400 0x400>;
+			rtk,gpio-bank = <1>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc RTK_CKE_GPIO>;
+		};
+
+		gpioc: gpio@4200D800 {
+			compatible = "realtek,ameba-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			reg = <0x4200D800 0x400>;
+			rtk,gpio-bank = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc RTK_CKE_GPIO>;
+		};
+	};
+};

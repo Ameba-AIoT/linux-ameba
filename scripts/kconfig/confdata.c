@@ -948,7 +948,9 @@ next:
 			return 1;
 	}
 
+#if 0
 	conf_message("configuration written to %s", name);
+#endif
 
 	sym_set_change_count(0);
 

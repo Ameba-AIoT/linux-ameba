@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for IR RX test
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/dts-v1/;
+
+#include "rtl8730e.dtsi"
+#include "rtl8730e-spi-nand-128m.dtsi"
+
+/ {
+	memory {
+		device_type = "memory";
+		// DRAM base address should be 1MB-aligned.
+		reg = <0x60300000 0x7D00000>;  // 128MB -- exclude 3MB secure memory
+	};
+};
+
+// Configure peripherals. Parameters described here is for wire-to-wire test.
+&ir {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ir_pins>;
+	rtk,ir-receiver = <1>; // 0: tx only; 1: rx only.
+	rtk,ir-cnt-thred-type = <0>;
+	rtk,rtk,ir-rx-trigger-mode = <1>;
+	status = "okay";
+};

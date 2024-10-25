@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Captouch driver configuration
+#
+config CAPTOUCH_RTK_AMEBA
+	tristate "Captouch driver"
+	default n
+	select INPUT_EVDEV
+	help
+	  Say Y here if you want to enable support for the built-in captouch.

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config PWM_RTK_AMEBA
+	tristate "PWM driver"
+	select PWM
+	select MFD_RTK_AMEBA_TIMERS
+	help
+	  Generic PWM driver for Realtek pwm timer.

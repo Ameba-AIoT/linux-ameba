@@ -1,0 +1,41 @@
+config RTK_MRDUMP
+	bool "MRDUMP support"
+	depends on ARM || ARM64
+	default n
+	select STACKTRACE
+	select DEBUG_INFO
+
+if RTK_MRDUMP
+
+config MRDUMP_IRQ_AFFINITY
+	int "mrdump affinity interrupt"
+	depends on SMP
+	default 0
+	help
+	  Some dump device works with interrupt which will be set affinity to
+	  the crash cpu. 0 means no interrupt.
+	  User can set it here, or sys/modules/mrdump/parameter/irq_affinity.
+
+config MRDUMP_MINI_TASKS_MAX
+	int "mrdump mini max number of tasks to save"
+	default 20
+
+config MRDUMP_MINI_FILE_PATH
+	string "mrdump file path"
+	default "/minidump"
+	help
+	  Dump file path can set here, or sys/modules/mrdump/parameter/file_path
+
+config MRDUMP_MINI_SECTION_SIZE
+	int "mrdump mini section size"
+	default 4096
+	help
+	  It indicates the memory size of an entry which will be saved.
+
+config MRDUMP_MINI_BUF_PADDR
+	int "mrdump mini phys address"
+	default 0
+	help
+	  It indicates a physical memory is reserved for mini dump.
+
+endif

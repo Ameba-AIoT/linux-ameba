@@ -698,10 +698,12 @@ static void xhci_giveback_urb_in_irq(struct xhci_hcd *xhci,
 
 	if (usb_pipetype(urb->pipe) == PIPE_ISOCHRONOUS) {
 		xhci_to_hcd(xhci)->self.bandwidth_isoc_reqs--;
+#ifdef CONFIG_USB_XHCI_PCI
 		if (xhci_to_hcd(xhci)->self.bandwidth_isoc_reqs	== 0) {
 			if (xhci->quirks & XHCI_AMD_PLL_FIX)
 				usb_amd_quirk_pll_enable();
 		}
+#endif
 	}
 	xhci_urb_free_priv(urb_priv);
 	usb_hcd_unlink_urb_from_ep(hcd, urb);
@@ -3941,10 +3943,12 @@ static int xhci_queue_isoc_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 	if (HCC_CFC(xhci->hcc_params))
 		xep->next_frame_id = urb->start_frame + num_tds * urb->interval;
 
+#ifdef CONFIG_USB_XHCI_PCI
 	if (xhci_to_hcd(xhci)->self.bandwidth_isoc_reqs == 0) {
 		if (xhci->quirks & XHCI_AMD_PLL_FIX)
 			usb_amd_quirk_pll_disable();
 	}
+#endif
 	xhci_to_hcd(xhci)->self.bandwidth_isoc_reqs++;
 
 	giveback_first_trb(xhci, slot_id, ep_index, urb->stream_id,

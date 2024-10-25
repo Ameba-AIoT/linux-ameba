@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config THERMAL_RTK_AMEBA
+	tristate "Thermal driver"
+	select THERMAL
+	help
+	  Support for Realtek thermal framework. This thermal driver allows
+	  to access to general thermal framework functionalities and to acces
+	  to SoC sensor functionalities.

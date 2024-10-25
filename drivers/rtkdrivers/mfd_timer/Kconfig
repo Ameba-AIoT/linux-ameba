@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MFD_RTK_AMEBA_TIMERS
+	tristate "Timer driver"
+	help
+	  Select this option to enable Realtek timers driver used
+	  for IIO.
