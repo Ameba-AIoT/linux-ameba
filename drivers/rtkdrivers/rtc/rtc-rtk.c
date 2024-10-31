@@ -18,15 +18,11 @@
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
-#include <linux/platform_device.h>
 #include <linux/time.h>
 
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/platform_device.h>
 #include <linux/pm_wakeirq.h>
-
-
 
 #define RTK_RTC_TR			0x000
 #define RTK_RTC_CR			0x004
@@ -200,13 +196,11 @@ struct rtk_rtc {
 	int irq_alarm;
 };
 
-
 static inline bool rtk_is_leap_year(unsigned int year)
 {
 	u32 full_year = year + RTC_BASE_YEAR;
 	return (!(full_year % 4) && (full_year % 100)) || !(full_year % 400);
 }
-
 
 static u8 days_in_month(u8 month, u8 year)
 {
@@ -393,6 +387,7 @@ static irqreturn_t rtk_rtc_alarm_irq(int irq, void *dev_id)
 	mutex_lock(&rtc->rtc_dev->ops_lock);
 
 	dev_dbg(&rtc->rtc_dev->dev, "Alarm occurred\n");
+	pm_wakeup_event(&rtc->rtc_dev->dev, 0);
 
 	/* Pass event to the kernel */
 	rtc_update_irq(rtc->rtc_dev, 1, RTC_IRQF | RTC_AF);
@@ -869,12 +864,10 @@ fail:
 	return ret;
 }
 
-
 static const struct of_device_id rtk_rtc_of_match[] = {
 	{ .compatible = "realtek,ameba-rtc",	},
 	{ /* end node */ },
 };
-
 
 static struct platform_driver rtk_rtc_driver = {
 	.probe	= rtk_rtc_probe,
@@ -884,9 +877,7 @@ static struct platform_driver rtk_rtc_driver = {
 	},
 };
 
-
 builtin_platform_driver(rtk_rtc_driver);
-
 
 MODULE_DESCRIPTION("Realtek Ameba RTC driver");
 MODULE_LICENSE("GPL v2");

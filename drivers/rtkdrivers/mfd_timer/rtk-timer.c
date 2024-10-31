@@ -78,9 +78,10 @@ static int is_timer_invalid(u32 index)
 
 static irqreturn_t rtk_gtimer_irq(int irq, void *dev_id)
 {
-	struct rtk_tim *tim = (struct rtk_tim *) dev_id;
+	struct rtk_tim *tim = (struct rtk_tim *)dev_id;
 
 	rtk_gtimer_int_clear(tim->index);
+	pm_wakeup_event(tim->dev, 0);
 
 	if (tim->intr_handler) {
 		tim->intr_handler(tim->cbdata);
@@ -165,10 +166,7 @@ int rtk_gtimer_change_period(u32 index, u64 period_ns)
 
 	return 0;
 }
-
 EXPORT_SYMBOL(rtk_gtimer_change_period);
-
-
 
 /**
   * @brief  Start or stop timer(counter will not reset to 0).
@@ -220,10 +218,7 @@ int rtk_gtimer_start(u32 index, u32 NewState)
 
 	return 0;
 }
-
 EXPORT_SYMBOL(rtk_gtimer_start);
-
-
 
 /**
   * @brief  Clear interrupt flag.
@@ -549,6 +544,7 @@ static int rtk_gtimer_probe(struct platform_device *pdev)
 		return tim->irq;
 	}
 
+	tim->dev = &pdev->dev;
 	ret = request_irq(tim->irq, (irq_handler_t) rtk_gtimer_irq, 0, pdev->name, tim);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to request IRQ\n");

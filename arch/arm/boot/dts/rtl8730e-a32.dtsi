@@ -36,6 +36,24 @@
 			freq_tab = < 330000 440000 
 						660000 1320000>;
 		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a32";
+			reg = <0x1>;
+			enable-method = "psci";
+			clock-frequency = <1200000000>;
+			clock-latency = <1000000>;
+			clocks = <&rcc RTK_CKE_AP>,
+					<&rcc RTK_CKD_AP>,
+					<&rcc RTK_CKSL_AP>,
+					<&rcc RTK_CLK_AP_PLL>,
+					<&clk_np_syspll 0>;
+			clock-names = "cpu","cpu-div","cpu-mux","ap-pll","np-pll";
+			freq_tab = < 330000 440000 
+						660000 1320000>;
+		};
+
 	};
 
 	gic: gic@A0101000 {
