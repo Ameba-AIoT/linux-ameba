@@ -35,9 +35,21 @@
 #include "btbcm.h"
 #include "hci_uart.h"
 
+#ifdef BTCOEX
+#include "rtk_coex.h"
+#endif
+
 #define VERSION "2.3"
 
 static const struct hci_uart_proto *hup[HCI_UART_MAX_PROTO];
+
+#define AMEBA_PHY_ADDR          0x42008250
+#define AMEBA_ACTIVE_PHY_ADDR   0x42008254
+#define BIT13	                  0x2000
+#define BIT14	                  0x4000
+
+void __iomem *ameba_virtu_addr;
+void __iomem *ameba_active_virtu_addr;
 
 int hci_uart_register_proto(const struct hci_uart_proto *p)
 {
@@ -142,6 +154,28 @@ no_schedule:
 }
 EXPORT_SYMBOL_GPL(hci_uart_tx_wakeup);
 
+static uint32_t cal_bit_shift(uint32_t Mask)
+{
+	uint32_t i;
+	for (i = 0; i < 31; i++) {
+		if (((Mask >> i) & 0x1) == 1) {
+			break;
+		}
+	}
+	return (i);
+}
+
+static void set_reg_value(uint32_t reg_address, uint32_t Mask, uint32_t val)
+{
+	uint32_t shift = 0;
+	uint32_t data = 0;
+	data = readl(reg_address);
+	shift = cal_bit_shift(Mask);
+	data = ((data & (~Mask)) | (val << shift));
+	writel(data, reg_address);
+	data = readl(reg_address);
+}
+
 static void hci_uart_write_work(struct work_struct *work)
 {
 	struct hci_uart *hu = container_of(work, struct hci_uart, write_work);
@@ -152,6 +186,20 @@ static void hci_uart_write_work(struct work_struct *work)
 	/* REVISIT: should we cope with bad skbs or ->write() returning
 	 * and error value ?
 	 */
+
+	if (1) {
+		/* acquire host wake up bt */
+		uint32_t data;
+
+		set_reg_value(ameba_virtu_addr, BIT13 | BIT14, 3); // enable HOST_WAKE_BT No GPIO | HOST_WAKE_BT
+		while (1) {
+			data = readl(ameba_active_virtu_addr) & 0x1F; // 0x42008254 [0:4]
+			if (data == 4) {
+				/* bt active */
+				break;
+			}
+		}
+	}
 
 restart:
 	clear_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
@@ -176,6 +224,11 @@ restart:
 	clear_bit(HCI_UART_SENDING, &hu->tx_state);
 	if (test_bit(HCI_UART_TX_WAKEUP, &hu->tx_state))
 		goto restart;
+
+	if (1) {
+		/* release host wake up bt */
+		set_reg_value(ameba_virtu_addr, BIT13 | BIT14, 0); // disable HOST_WAKE_BT No GPIO | HOST_WAKE_BT
+	}
 
 	wake_up_bit(&hu->tx_state, HCI_UART_SENDING);
 }
@@ -255,6 +308,10 @@ static int hci_uart_open(struct hci_dev *hdev)
 	/* Undo clearing this from hci_uart_close() */
 	hdev->flush = hci_uart_flush;
 
+#ifdef BTCOEX
+	rtk_btcoex_open(hdev);
+#endif
+
 	return 0;
 }
 
@@ -265,6 +322,11 @@ static int hci_uart_close(struct hci_dev *hdev)
 
 	hci_uart_flush(hdev);
 	hdev->flush = NULL;
+
+#ifdef BTCOEX
+	rtk_btcoex_close();
+#endif
+
 	return 0;
 }
 
@@ -275,6 +337,15 @@ static int hci_uart_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 
 	BT_DBG("%s: type %d len %d", hdev->name, hci_skb_pkt_type(skb),
 	       skb->len);
+
+#ifdef BTCOEX
+	if (hci_skb_pkt_type(skb) == HCI_COMMAND_PKT) {
+		rtk_btcoex_parse_cmd(skb->data, skb->len);
+	}
+	if (hci_skb_pkt_type(skb) == HCI_ACLDATA_PKT) {
+		rtk_btcoex_parse_l2cap_data_tx(skb->data, skb->len);
+	}
+#endif
 
 	percpu_down_read(&hu->proto_lock);
 
@@ -479,6 +550,9 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 
 	BT_DBG("tty %p", tty);
 
+	if (!capable(CAP_NET_ADMIN))
+		return -EPERM;
+
 	/* Error if the tty has no write op instead of leaving an exploitable
 	 * hole
 	 */
@@ -489,6 +563,11 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 	if (!hu) {
 		BT_ERR("Can't allocate control structure");
 		return -ENFILE;
+	}
+	if (percpu_init_rwsem(&hu->proto_lock)) {
+		BT_ERR("Can't allocate semaphore structure");
+		kfree(hu);
+		return -ENOMEM;
 	}
 
 	tty->disc_data = hu;
@@ -501,8 +580,6 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 
 	INIT_WORK(&hu->init_ready, hci_uart_init_work);
 	INIT_WORK(&hu->write_work, hci_uart_write_work);
-
-	percpu_init_rwsem(&hu->proto_lock);
 
 	/* Flush any pending characters in the driver */
 	tty_driver_flush_buffer(tty);
@@ -593,7 +670,7 @@ static void hci_uart_tty_wakeup(struct tty_struct *tty)
  * Return Value:    None
  */
 static void hci_uart_tty_receive(struct tty_struct *tty, const u8 *data,
-				 char *flags, int count)
+								 char *flags, int count)
 {
 	struct hci_uart *hu = tty->disc_data;
 
@@ -689,6 +766,10 @@ static int hci_uart_register_dev(struct hci_uart *hu)
 
 	set_bit(HCI_UART_REGISTERED, &hu->flags);
 
+#ifdef BTCOEX
+	rtk_btcoex_probe(hdev);
+#endif
+
 	return 0;
 }
 
@@ -736,14 +817,13 @@ static int hci_uart_set_flags(struct hci_uart *hu, unsigned long flags)
  * Arguments:
  *
  *    tty        pointer to tty instance data
- *    file       pointer to open file object for device
  *    cmd        IOCTL command code
  *    arg        argument for IOCTL call (cmd dependent)
  *
  * Return Value:    Command dependent
  */
 static int hci_uart_tty_ioctl(struct tty_struct *tty, struct file *file,
-			      unsigned int cmd, unsigned long arg)
+							  unsigned int cmd, unsigned long arg)
 {
 	struct hci_uart *hu = tty->disc_data;
 	int err = 0;
@@ -801,7 +881,7 @@ static int hci_uart_tty_ioctl(struct tty_struct *tty, struct file *file,
  * We don't provide read/write/poll interface for user space.
  */
 static ssize_t hci_uart_tty_read(struct tty_struct *tty, struct file *file,
-				 unsigned char __user *buf, size_t nr)
+								 unsigned char __user *buf, size_t nr)
 {
 	return 0;
 }
@@ -818,29 +898,28 @@ static __poll_t hci_uart_tty_poll(struct tty_struct *tty,
 	return 0;
 }
 
+static struct tty_ldisc_ops hci_uart_ldisc = {
+	.owner		= THIS_MODULE,
+	.num		= N_HCI,
+	.name		= "n_hci",
+	.open		= hci_uart_tty_open,
+	.close		= hci_uart_tty_close,
+	.read		= hci_uart_tty_read,
+	.write		= hci_uart_tty_write,
+	.ioctl		= hci_uart_tty_ioctl,
+	.compat_ioctl	= hci_uart_tty_ioctl,
+	.poll		= hci_uart_tty_poll,
+	.receive_buf	= hci_uart_tty_receive,
+	.write_wakeup	= hci_uart_tty_wakeup,
+};
+
 static int __init hci_uart_init(void)
 {
-	static struct tty_ldisc_ops hci_uart_ldisc;
 	int err;
 
 	BT_INFO("HCI UART driver ver %s", VERSION);
 
 	/* Register the tty discipline */
-
-	memset(&hci_uart_ldisc, 0, sizeof(hci_uart_ldisc));
-	hci_uart_ldisc.magic		= TTY_LDISC_MAGIC;
-	hci_uart_ldisc.name		= "n_hci";
-	hci_uart_ldisc.open		= hci_uart_tty_open;
-	hci_uart_ldisc.close		= hci_uart_tty_close;
-	hci_uart_ldisc.read		= hci_uart_tty_read;
-	hci_uart_ldisc.write		= hci_uart_tty_write;
-	hci_uart_ldisc.ioctl		= hci_uart_tty_ioctl;
-	hci_uart_ldisc.compat_ioctl	= hci_uart_tty_ioctl;
-	hci_uart_ldisc.poll		= hci_uart_tty_poll;
-	hci_uart_ldisc.receive_buf	= hci_uart_tty_receive;
-	hci_uart_ldisc.write_wakeup	= hci_uart_tty_wakeup;
-	hci_uart_ldisc.owner		= THIS_MODULE;
-
 	err = tty_register_ldisc(N_HCI, &hci_uart_ldisc);
 	if (err) {
 		BT_ERR("HCI line discipline registration failed. (%d)", err);
@@ -850,33 +929,13 @@ static int __init hci_uart_init(void)
 #ifdef CONFIG_BT_HCIUART_H4
 	h4_init();
 #endif
-#ifdef CONFIG_BT_HCIUART_BCSP
-	bcsp_init();
+
+#ifdef BTCOEX
+	rtk_btcoex_init();
 #endif
-#ifdef CONFIG_BT_HCIUART_LL
-	ll_init();
-#endif
-#ifdef CONFIG_BT_HCIUART_ATH3K
-	ath_init();
-#endif
-#ifdef CONFIG_BT_HCIUART_3WIRE
-	h5_init();
-#endif
-#ifdef CONFIG_BT_HCIUART_INTEL
-	intel_init();
-#endif
-#ifdef CONFIG_BT_HCIUART_BCM
-	bcm_init();
-#endif
-#ifdef CONFIG_BT_HCIUART_QCA
-	qca_init();
-#endif
-#ifdef CONFIG_BT_HCIUART_AG6XX
-	ag6xx_init();
-#endif
-#ifdef CONFIG_BT_HCIUART_MRVL
-	mrvl_init();
-#endif
+
+	ameba_virtu_addr = ioremap(AMEBA_PHY_ADDR, 32);
+	ameba_active_virtu_addr = ioremap(AMEBA_ACTIVE_PHY_ADDR, 32);
 
 	return 0;
 }
@@ -888,38 +947,18 @@ static void __exit hci_uart_exit(void)
 #ifdef CONFIG_BT_HCIUART_H4
 	h4_deinit();
 #endif
-#ifdef CONFIG_BT_HCIUART_BCSP
-	bcsp_deinit();
-#endif
-#ifdef CONFIG_BT_HCIUART_LL
-	ll_deinit();
-#endif
-#ifdef CONFIG_BT_HCIUART_ATH3K
-	ath_deinit();
-#endif
-#ifdef CONFIG_BT_HCIUART_3WIRE
-	h5_deinit();
-#endif
-#ifdef CONFIG_BT_HCIUART_INTEL
-	intel_deinit();
-#endif
-#ifdef CONFIG_BT_HCIUART_BCM
-	bcm_deinit();
-#endif
-#ifdef CONFIG_BT_HCIUART_QCA
-	qca_deinit();
-#endif
-#ifdef CONFIG_BT_HCIUART_AG6XX
-	ag6xx_deinit();
-#endif
-#ifdef CONFIG_BT_HCIUART_MRVL
-	mrvl_deinit();
-#endif
 
 	/* Release tty registration of line discipline */
-	err = tty_unregister_ldisc(N_HCI);
-	if (err)
+	if ((err = tty_unregister_ldisc(N_HCI))) {
 		BT_ERR("Can't unregister HCI line discipline (%d)", err);
+	}
+
+#ifdef BTCOEX
+	rtk_btcoex_exit();
+#endif
+
+	iounmap(ameba_virtu_addr);
+	iounmap(ameba_active_virtu_addr);
 }
 
 module_init(hci_uart_init);

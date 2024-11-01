@@ -12,6 +12,12 @@
 #define N_HCI	15
 #endif
 
+#ifndef CONFIG_BT_HCIUART_H4
+#define CONFIG_BT_HCIUART_H4
+#endif
+
+#define BTCOEX
+
 /* Ioctls */
 #define HCIUARTSETPROTO		_IOW('U', 200, int)
 #define HCIUARTGETPROTO		_IOR('U', 201, int)
@@ -86,9 +92,10 @@ struct hci_uart {
 };
 
 /* HCI_UART proto flag bits */
-#define HCI_UART_PROTO_SET	0
-#define HCI_UART_REGISTERED	1
-#define HCI_UART_PROTO_READY	2
+#define HCI_UART_PROTO_SET		0
+#define HCI_UART_REGISTERED		1
+#define HCI_UART_PROTO_READY		2
+#define HCI_UART_NO_SUSPEND_NOTIFIER	3
 
 /* TX states  */
 #define HCI_UART_SENDING	1
@@ -143,52 +150,14 @@ struct h4_recv_pkt {
 	.lsize = 1, \
 	.maxlen = HCI_MAX_EVENT_SIZE
 
+#define H4_RECV_ISO \
+	.type = HCI_ISODATA_PKT, \
+	.hlen = HCI_ISO_HDR_SIZE, \
+	.loff = 2, \
+	.lsize = 2, \
+	.maxlen = HCI_MAX_FRAME_SIZE \
+
 struct sk_buff *h4_recv_buf(struct hci_dev *hdev, struct sk_buff *skb,
 			    const unsigned char *buffer, int count,
 			    const struct h4_recv_pkt *pkts, int pkts_count);
-#endif
-
-#ifdef CONFIG_BT_HCIUART_BCSP
-int bcsp_init(void);
-int bcsp_deinit(void);
-#endif
-
-#ifdef CONFIG_BT_HCIUART_LL
-int ll_init(void);
-int ll_deinit(void);
-#endif
-
-#ifdef CONFIG_BT_HCIUART_ATH3K
-int ath_init(void);
-int ath_deinit(void);
-#endif
-
-#ifdef CONFIG_BT_HCIUART_3WIRE
-int h5_init(void);
-int h5_deinit(void);
-#endif
-
-#ifdef CONFIG_BT_HCIUART_INTEL
-int intel_init(void);
-int intel_deinit(void);
-#endif
-
-#ifdef CONFIG_BT_HCIUART_BCM
-int bcm_init(void);
-int bcm_deinit(void);
-#endif
-
-#ifdef CONFIG_BT_HCIUART_QCA
-int qca_init(void);
-int qca_deinit(void);
-#endif
-
-#ifdef CONFIG_BT_HCIUART_AG6XX
-int ag6xx_init(void);
-int ag6xx_deinit(void);
-#endif
-
-#ifdef CONFIG_BT_HCIUART_MRVL
-int mrvl_init(void);
-int mrvl_deinit(void);
 #endif
