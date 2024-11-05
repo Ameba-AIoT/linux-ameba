@@ -197,9 +197,9 @@ int rtk_otp_process(void* data, u8 *result)
 		}
 	}
 
-	if (p_recv_res->ret != 1) {
-			pr_warning("OTP failed but has already complete %d", p_recv_res->complete_num);
-			goto err_ret;
+	if (p_recv_res->ret < 0) {
+		pr_warning("OTP failed but has already complete %d", p_recv_res->complete_num);
+		goto err_ret;
 	}
 
 	otp_d = piihp_priv;
