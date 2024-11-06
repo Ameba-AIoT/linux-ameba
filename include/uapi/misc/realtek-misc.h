@@ -22,5 +22,11 @@
 #define RTK_MISC_IOC_UUID           _IOR(MISC_IOC_MAGIC, 2, __u32)
 #define RTK_MISC_IOC_DDRC_AUTO_GATE _IOR(MISC_IOC_MAGIC, 3, __u32)
 #define RTK_MISC_IOC_DDRC_DISGATE   _IOR(MISC_IOC_MAGIC, 4, __u32)
+#define RTK_MISC_IOC_VOLTAGE_SET    _IOR(MISC_IOC_MAGIC, 5, __u32)
+#define RTK_MISC_IOC_VOLTAGE_GET    _IOR(MISC_IOC_MAGIC, 6, __u32)
+
+/* Voltage */
+#define VOL_09                      1
+#define VOL_10                      3
 
 #endif
