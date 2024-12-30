@@ -21,7 +21,6 @@
 #include <net/bluetooth/l2cap.h>
 
 #include "rtk_coex.h"
-extern void wifi_btcoex_bt_hci_notify(uint8_t *pdata, uint16_t len, uint8_t dir);
 
 #define HCI_CONN_HANDLE_UNSET_START	(0x0eff + 1)
 #define HCI_CONN_TYPE_CIS		0x04
@@ -1523,9 +1522,7 @@ void bt_coex_evt_notify(uint8_t *pdata, uint16_t len)
 	default:
 		break;
 	}
-	if (need_notify == TRUE) {
-		wifi_btcoex_bt_hci_notify(pdata, len, DIR_IN);
-	}
+	(void)need_notify;
 }
 
 void bt_coex_cmd_notify(uint8_t *pdata, uint16_t len)
@@ -1538,8 +1535,7 @@ void bt_coex_cmd_notify(uint8_t *pdata, uint16_t len)
 	case BT_HCI_OP_BR_WR_SCAN_ENABLE:
 	case BT_HCI_OP_BR_WR_PAGE_SCAN_ACTIVITY:
 	case BT_HCI_OP_BR_WR_INQ_SCAN_ACTIVITY:
-	case BT_HCI_OP_LE_CREATE_CONNECTION:		
-		wifi_btcoex_bt_hci_notify(pdata, len, DIR_OUT);
+	case BT_HCI_OP_LE_CREATE_CONNECTION:
 		break;
 	default:
 		break;
