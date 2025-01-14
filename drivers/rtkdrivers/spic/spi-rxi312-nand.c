@@ -295,7 +295,6 @@ static int rxi312_spi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 #endif
 
 	mutex_lock(&spi->lock);
-	local_irq_save(flags);
 
 	nbytes = op->data.nbytes;
 	ctrl0_bak = map->ctrlr0;
@@ -448,7 +447,6 @@ static int rxi312_spi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 	umode_dis_ns = ktime_get_raw_ns() - umode_dis_ns;
 #endif
 
-	local_irq_restore(flags);
 	mutex_unlock(&spi->lock);
 
 #if SPIC_TP_TEST_EN

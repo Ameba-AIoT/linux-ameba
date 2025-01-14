@@ -26,9 +26,7 @@
 #define REG_HSYS_HP_CKE				0x000C
 #define HSYS_BIT_CKE_AP				((u32)0x00000001 << 0)
 
-
 #define IPC_PM_CHAN_NUM			0
-
 
 typedef struct {
 	u32	sleep_type;
@@ -36,7 +34,6 @@ typedef struct {
 	u32	dlps_enable;
 	u32	rsvd[5];
 } SLEEP_ParamDef;
-
 
 struct aipc_ch *pm_ch;
 ipc_msg_struct_t pm_msg;
@@ -49,7 +46,6 @@ static u32 rtk_pm_test(aipc_ch_t *ch, ipc_msg_struct_t *pmsg)
 	pr_info("rtk_pm_test\n");
 	return 0;
 }
-
 
 int rtk_psci_cpu_suspend(unsigned long arg)
 {
@@ -65,12 +61,21 @@ static struct aipc_ch_ops rtk_pm_ipc_ops = {
 	.channel_recv = rtk_pm_test,
 };
 
+static __inline__ void rtk_pm_delay(void)
+{
+	/*
+	* This modification ensures that within 10us after disabling CKE,
+	* we continuously access the LP registers, preventing the system
+	* from having any spare time to perform cache-related operations.
+	*/
+	readb(reg_lsys_ap_status_sw);
+	readb(reg_lsys_ap_status_sw);
+}
 
 static int  rtk_pm_valid(suspend_state_t state)
 {
 	return (state == PM_SUSPEND_MEM) || (state == PM_SUSPEND_CG) || (state == PM_SUSPEND_PG);
 }
-
 
 static int rtk_pm_enter(suspend_state_t state)
 {
@@ -104,6 +109,7 @@ static int rtk_pm_enter(suspend_state_t state)
 		pm_param.sleep_type = 0x1;
 		pm_param.sleep_time = 0;
 		pm_param.dlps_enable = 0x0;
+
 		clean_dcache_area(&pm_param, sizeof(ipc_msg_struct_t));
 		ret = ameba_ipc_channel_send(pm_ch, (ipc_msg_struct_t *)&pm_param);
 		if (ret < 0) {
@@ -114,8 +120,7 @@ static int rtk_pm_enter(suspend_state_t state)
 		writel(readl(reg_hsys_hp_cke) & (~HSYS_BIT_CKE_AP),
 			   reg_hsys_hp_cke);
 
-		/* Non-wakeup-source interrupt has been disabled, so wfi is safe */
-		wfi();
+		rtk_pm_delay();
 
 	} else if (state == PM_SUSPEND_PG) {
 		pr_info("sleep mode pg\n");
@@ -134,12 +139,10 @@ static int rtk_pm_enter(suspend_state_t state)
 	return 0;
 }
 
-
 static const struct platform_suspend_ops rtk_pm_ops = {
 	.valid	= rtk_pm_valid,
 	.enter	= rtk_pm_enter,
 };
-
 
 static int __init rtk_pm_init(void)
 {
