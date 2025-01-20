@@ -14,6 +14,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/of_device.h>
+#include <linux/of_address.h>
 #include <linux/export.h>
 #include "phy-rtk-usb.h"
 
@@ -42,6 +43,9 @@ struct rtk_usb_phy_cal_data_t {
 	u8 addr;
 	u8 val;
 };
+
+static void __iomem *otg_base;
+static int usb_force_mode;
 
 static const struct of_device_id rtk_phy_dt_ids[] = {
 	{ .compatible = "realtek,otg-phy", },
@@ -375,17 +379,93 @@ static void rtk_phy_shutdown(struct usb_phy *phy)
 	dev_info(phy->dev, "USB PHY shutdown\n");
 }
 
+static int usb_force_mode_set(const char *val, const struct kernel_param *kp)
+{
+       int ret;
+       u32 gusbcfg;
+       void __iomem *otg_gusbcfg;
+
+       ret = param_set_int(val, kp);
+       if (ret < 0)
+               return ret;
+
+       if(otg_base){
+               otg_gusbcfg = otg_base + OTG_GUSBCFG;
+               gusbcfg = readl(otg_gusbcfg);
+
+               if (usb_force_mode == 0) {
+                       gusbcfg &= ~GUSBCFG_FORCEHOSTMODE;
+                       gusbcfg &= ~GUSBCFG_FORCEDEVICEMODE;
+               } else if(usb_force_mode == 1) {
+                       gusbcfg |= GUSBCFG_FORCEHOSTMODE;
+                       gusbcfg &= ~GUSBCFG_FORCEDEVICEMODE;
+               } else if(usb_force_mode == 2){
+                       gusbcfg &= ~GUSBCFG_FORCEHOSTMODE;
+                       gusbcfg |= GUSBCFG_FORCEDEVICEMODE;
+               } else{
+                       pr_err("Invalid value\n");
+                       return -EINVAL;
+               }
+
+               writel(gusbcfg, otg_gusbcfg);
+       }
+
+       return 0;
+}
+
+static const struct kernel_param_ops usb_force_mode_ops = {
+       .set = usb_force_mode_set,
+       .get = param_get_int,
+};
+
+module_param_cb(usb_force_mode, &usb_force_mode_ops, &usb_force_mode, S_IRUGO | S_IWUSR);
+
 static int rtk_phy_probe(struct platform_device *pdev)
 {
 	struct resource *res;
+	struct resource usb_res;
 	void __iomem *base;
 	void __iomem *sys_base;
 	void __iomem *otpc_base;
 	void __iomem *lsys_aip_ctrl1;
 	struct clk *clk;
 	struct rtk_phy *rtk_phy;
+	struct device_node *usb_np;
+	struct device_node *np = pdev->dev.of_node;
 	int ret;
+	int usb_force_rule_en = 0;
 	const struct of_device_id *of_id;
+
+	ret = of_property_read_u32(np, "rtk,usb-force-role-en", &usb_force_rule_en);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to read rtk,phy-param property\n");
+		return ret;
+	}
+
+	if(usb_force_rule_en != 0){
+		usb_np = of_parse_phandle(np, "rtk,usb-phandle", 0);
+		if (!usb_np) {
+			dev_err(&pdev->dev, "Failed to find USB node\n");
+			return -ENODEV;
+		}
+
+		ret = of_address_to_resource(usb_np, 0, &usb_res);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to get USB memory resource\n");
+			of_node_put(usb_np);
+			return ret;
+		}
+
+		of_node_put(usb_np);
+
+		otg_base = ioremap(usb_res.start, resource_size(&usb_res));
+		if (!otg_base) {
+			dev_err(&pdev->dev, "Failed to ioremap USB resource\n");
+			return -ENOMEM;
+		}
+	}else{
+		otg_base = NULL;
+	}
 
 	of_id = of_match_device(rtk_phy_dt_ids, &pdev->dev);
 	if (!of_id) {
@@ -431,8 +511,6 @@ static int rtk_phy_probe(struct platform_device *pdev)
 	rtk_phy->phy.io_priv = base;
 	rtk_phy->phy.dev = &pdev->dev;
 	rtk_phy->phy.label = DRIVER_NAME;
-	//rtk_phy->phy.init = rtk_phy_init;
-	//rtk_phy->phy.shutdown = rtk_phy_shutdown;
 	rtk_phy->phy.type = USB_PHY_TYPE_USB2;
 
 	rtk_phy->clk = clk;
@@ -447,7 +525,7 @@ static int rtk_phy_probe(struct platform_device *pdev)
 
 	ret = usb_add_phy_dev(&rtk_phy->phy);
 
-	rtk_phy_init(&rtk_phy->phy); // TBD
+	rtk_phy_init(&rtk_phy->phy);
 
 	return ret;
 }
@@ -456,10 +534,15 @@ static int rtk_phy_remove(struct platform_device *pdev)
 {
 	struct rtk_phy *rtk_phy = platform_get_drvdata(pdev);
 
-	rtk_phy_shutdown(&rtk_phy->phy); // TBD
+	rtk_phy_shutdown(&rtk_phy->phy);
 	rtk_phy->is_cal = 0;
 
 	usb_remove_phy(&rtk_phy->phy);
+
+	if (otg_base){
+		iounmap(otg_base);
+		otg_base = NULL;
+	}
 
 	return 0;
 }

@@ -211,6 +211,10 @@
 #define SEC_GET_USB_PHY_REG_LATE_DLLEN(x)           ((u32)(((x >> 0) & 0x00000003)))
 /** @} */
 
+#define OTG_GUSBCFG                                 0x00C
+#define GUSBCFG_FORCEDEVICEMODE                     BIT(30)
+#define GUSBCFG_FORCEHOSTMODE                       BIT(29)
+
 int rtk_phy_calibrate(struct dwc2_hsotg *hsotg);
 
 #endif /* __PHY_RTK_VIEWPORT_H */
