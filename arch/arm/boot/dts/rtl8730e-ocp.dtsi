@@ -427,9 +427,9 @@
 			compatible = "realtek,dwc-otg";
 			reg = <0x40080000 0x20000>;
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
-			g-rx-fifo-size = <512>;
+			g-rx-fifo-size = <504>;
 			g-np-tx-fifo-size = <256>;
-			g-tx-fifo-size = <128 120>;
+			g-tx-fifo-size = <256>;
 			status = "okay";
 			endpoints {
 				ep1in {

@@ -169,12 +169,12 @@ static void dwc2_set_realtek_hsotg_params(struct dwc2_hsotg *hsotg)
 
 	p->otg_cap = DWC2_CAP_PARAM_NO_HNP_SRP_CAPABLE;
 	p->speed = DWC2_SPEED_PARAM_HIGH;
-	p->host_rx_fifo_size = 512;
+	p->host_rx_fifo_size = 504;
 	p->host_nperio_tx_fifo_size = 256;
-	p->host_perio_tx_fifo_size = 128;
+	p->host_perio_tx_fifo_size = 256;
 	p->max_transfer_size = 65535;
 	p->max_packet_count = 511;
-	p->host_channels = 7;
+	p->host_channels = 8;
 	p->phy_type = DWC2_PHY_TYPE_PARAM_UTMI;
 	p->phy_utmi_width = 16;
 	p->i2c_enable = false;
