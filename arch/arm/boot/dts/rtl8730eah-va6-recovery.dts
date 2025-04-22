@@ -260,6 +260,43 @@
 			compatible = "realtek,ameba-otp";
 		};
 
+		usb: usb@40080000 {
+			compatible = "realtek,dwc-otg";
+			reg = <0x40080000 0x20000>;
+			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
+			g-rx-fifo-size = <504>;
+			g-np-tx-fifo-size = <256>;
+			g-tx-fifo-size = <256>;
+			dr_mode = "host";
+			status = "okay";
+			endpoints {
+				ep1in {
+					ep_name = "ep1in";
+					ep_type = <0x0E>; // USB_EP_CAPS_TYPE_ALL
+				};
+				ep2out {
+					ep_name = "ep2out";
+					ep_type = <0x0E>; // USB_EP_CAPS_TYPE_ALL
+				};
+				ep3in {
+					ep_name = "ep3in";
+					ep_type = <0x0E>; // USB_EP_CAPS_TYPE_ALL
+				};
+				ep4out {
+					ep_name = "ep4out";
+					ep_type = <0x0E>; // USB_EP_CAPS_TYPE_ALL
+				};
+				ep5in {
+					ep_name = "ep5in";
+					ep_type = <0x0E>; // USB_EP_CAPS_TYPE_ALL
+				};
+				ep5out {
+					ep_name = "ep5out";
+					ep_type = <0x0E>; // USB_EP_CAPS_TYPE_ALL
+				};
+			};
+		};
+
 		usb_phy: usb-phy@41000000 {
 			compatible = "realtek,otg-phy";
 			reg = <0x400B0000 0x20>,
@@ -268,16 +305,18 @@
 				<0x4200825C 4>;
 			#phy-cells = <0>;
 			clocks = <&rcc RTK_CKE_USB>;
-			status = "okay";
-		};
-
-		usb: usb@40080000 {
-			compatible = "realtek,dwc-otg";
-			reg = <0x40080000 0x20000>;
-			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
-			g-rx-fifo-size = <512>;
-			g-np-tx-fifo-size = <256>;
-			g-tx-fifo-size = <128 120>;
+			rtk,cal-data = <0x00 0xE0 0x9D>,
+				<0x00 0xE1 0x19>,
+				<0x00 0xE2 0xDB>,
+				<0x00 0xE4 0x68>,
+				<0x01 0xE5 0x0A>,
+				<0x01 0xE6 0xD8>,
+				<0x02 0xE7 0x52>,
+				<0x01 0xE0 0x04>,
+				<0x01 0xE0 0x00>,
+				<0x01 0xE0 0x04>;
+			rtk,usb-phandle = <&usb>;
+			rtk,usb-force-role-en = <1>;
 			status = "okay";
 		};
 
