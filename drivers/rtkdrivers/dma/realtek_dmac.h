@@ -401,6 +401,20 @@ struct dma_pause_record {
 	int			has_next;
 };
 
+struct hw_lli_block {
+	u32 Sarx;                   /*!< Specifies the GDMA channel x Source Address Register (SARx) value field of a block descriptor in block chaining.
+					                        This parameter stores the source address of the current block transfer.*/
+	u32 Darx;                   /*!< Specifies the GDMA channel x Destination Address Register(DARx) value field of a block descriptor in block chaining.
+					                         This parameter stores the destination address of the current block transfer.*/
+	u32 Llpx;                   /*!< Specifies the GDMA channel x Linked List Pointer Register(LLPx) value field of a block descriptor
+	                                 in block chaining. This parameter is a address, which points to the next block descriptor.*/
+	u32 CtlxLow;                /*!< Specifies the GDMA channel x Control Register(CTRx) Low 32 bit value field of a block descriptor
+	                                 in block chaining. This parameter stores the DMA control parameters of the current block transfer.*/
+	u32 CtlxUp;                 /*!< Specifies the GDMA channel x Control Register(CTRx) High 32 bit value field of a block descriptor
+	                                 in block chaining.This parameter stores the DMA control parameters of the current block transfer.*/
+	u32 Temp;                   /*!< Specifies the reserved GDMA channel x register value field of a block descriptor in block chaining.*/
+} __attribute__((aligned(64)));
+
 /**
  * struct rtk_dma_pchan - Holder for the physical channels
  * @id: physical index to this channel
@@ -439,6 +453,10 @@ struct rtk_dma_vchan {
 	struct rtk_dma_txd	txd[RTK_MAX_TXD_PER_VCHAN];
 	struct dma_slave_config cfg;
 	u8			drq;
+
+	int			hw_lli_size;
+	struct hw_lli_block	*hwlli_buffers;
+	dma_addr_t		hwlli_dma_addrs;
 };
 
 /**

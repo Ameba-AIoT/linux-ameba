@@ -13,6 +13,9 @@
 
 /**************************************************************************/
 
+static int rtk_dma_pause(struct dma_chan *chan);
+static int rtk_dma_resume(struct dma_chan *chan);
+
 static void rsdma_writel(
 	void __iomem *ptr, u32 reg, u32 value)
 {
@@ -115,8 +118,7 @@ static void rtk_dma_channel_enable(struct rtk_dma *rsdma, u32 channel_num, u8 en
 
 static void rtk_dma_prepare_cmd(
 	struct rtk_dma *rsdma,
-	struct rtk_dma_hw_cfg *hw_cfg,
-	bool interrupt_en)
+	struct rtk_dma_hw_cfg *hw_cfg)
 {
 	/* 1. Set this DMA non-secure. */
 	rsdma_writel(rsdma->base, RTK_DMA_CHAN_CFG_U, BIT_DMA_CFG_PROTCTL_U(0));
@@ -128,9 +130,11 @@ static void rtk_dma_prepare_cmd(
 	rtk_dma_channel_enable(rsdma, hw_cfg->channel_index, DISABLE);
 
 	/* 4. Set dma interrupt mask for this transmit. */
-	if (interrupt_en) {
+	if (!hw_cfg->llpx) {
+		/* Single block mode. */
 		rtk_dma_set_interrupt_mask(rsdma, hw_cfg->channel_index, ENABLE);
 	} else {
+		/* HW-LLI mode. */
 		rtk_dma_set_interrupt_mask(rsdma, hw_cfg->channel_index, DISABLE);
 	}
 
@@ -144,6 +148,8 @@ static void rtk_dma_prepare_cmd(
 
 	rsdma_writel(rsdma->base, RTK_DMA_CHAN_BASE(hw_cfg->channel_index) + RTK_DMA_CHAN_CFG_L, hw_cfg->cfgx_low);
 	rsdma_writel(rsdma->base, RTK_DMA_CHAN_BASE(hw_cfg->channel_index) + RTK_DMA_CHAN_CFG_U, hw_cfg->cfgx_up);
+
+	rsdma_writel(rsdma->base, RTK_DMA_CHAN_BASE(hw_cfg->channel_index) + RTK_DMA_CHAN_LLP_L, hw_cfg->llpx);
 }
 
 /**************************************************************************/
@@ -297,8 +303,7 @@ static inline int rtk_dma_hw_cfg_lli(
 	dma_addr_t src, dma_addr_t dst,
 	u32 len, enum dma_transfer_direction dir,
 	struct dma_slave_config *sconfig,
-	struct rtk_dma_txd *txd,
-	bool interrupt_en)
+	struct rtk_dma_txd *txd)
 {
 	struct rtk_dma *rsdma = to_rtk_dma(vchan->vc.chan.device);
 	struct rtk_dma_hw_cfg *hw_cfg = &lli->hw;
@@ -383,19 +388,7 @@ static inline int rtk_dma_hw_cfg_lli(
 		hw_cfg->block_size = len / sconfig->src_addr_width;
 	}
 
-	/* auto-reload mode. */
-	if (!interrupt_en) {
-		hw_cfg->src_reload = 1;
-		hw_cfg->dst_reload = 1;
-	} else {
-		hw_cfg->src_reload = 0;
-		hw_cfg->dst_reload = 0;
-	}
-
-	dev_dbg(rsdma->dma.dev, "Config block size = %d\n", hw_cfg->block_size);
-
 	/* combine ctl and cfg regs */
-	hw_cfg->ctlx_up = BIT_DMA_CTL_BLOCK_TS_U(hw_cfg->block_size);
 	hw_cfg->ctlx_low = BIT_DMA_CTL_INT_EN_L(1) |
 					   BIT_DMA_CTL_DST_TR_WIDTH_L(dst_width) |
 					   BIT_DMA_CTL_SRC_TR_WIDTH_L(src_width) |
@@ -412,6 +405,19 @@ static inline int rtk_dma_hw_cfg_lli(
 					   BIT_DMA_CTL_LLP_DST_EN_L(0) |
 					   BIT_DMA_CTL_LLP_SRC_EN_L(0);
 
+	if (!vchan->hw_lli_size) {
+		hw_cfg->src_reload = 0;
+		hw_cfg->dst_reload = 0;
+		/* Single block size. */
+		hw_cfg->ctlx_up = BIT_DMA_CTL_BLOCK_TS_U(hw_cfg->block_size);
+	} else {
+		/* HW LLI Mode. */
+		hw_cfg->ctlx_up = 0;
+		hw_cfg->src_reload = 0;
+		hw_cfg->dst_reload = 0;
+		hw_cfg->ctlx_low |= ((dir == DMA_MEM_TO_DEV) ? BIT_DMA_CTL_LLP_SRC_EN_L(1) : BIT_DMA_CTL_LLP_DST_EN_L(1));
+	}
+
 	hw_cfg->cfgx_up = BIT_DMA_CFG_FCMODE_U(sconfig->device_fc) |
 					  BIT_DMA_CFG_FIFO_MODE_U(0) |
 					  BIT_DMA_CFG_PROTCTL_U(secure) |
@@ -424,6 +430,7 @@ static inline int rtk_dma_hw_cfg_lli(
 	hw_cfg->cfgx_low = BIT_DMA_CFG_RELOAD_SRC_L(hw_cfg->src_reload) |
 					   BIT_DMA_CFG_RELOAD_DST_L(hw_cfg->dst_reload);
 
+	hw_cfg->llpx = 0;
 	return 0;
 }
 
@@ -506,7 +513,7 @@ static int rtk_dma_start_next_txd(struct rtk_dma_vchan *vchan, u8 last_lli)
 	lli->hw.channel_index = pchan->id;
 	dev_dbg(rsdma->dma.dev, "Link list lli->hw.channel_index = %d\n", lli->hw.channel_index);
 
-	rtk_dma_prepare_cmd(rsdma, &lli->hw, vd->tx.flags & DMA_PREP_INTERRUPT);
+	rtk_dma_prepare_cmd(rsdma, &lli->hw);
 
 	dev_dbg(rsdma->dma.dev, "Starting pchan %d\n", pchan->id);
 
@@ -851,8 +858,25 @@ static int rtk_dma_terminate_all(struct dma_chan *chan)
 	struct rtk_dma *rsdma = to_rtk_dma(chan->device);
 	struct rtk_dma_vchan *vchan = to_rtk_vchan(chan);
 	unsigned long flags;
-	int i;
+	int i = 0, timeout = 500;
 	LIST_HEAD(head);
+
+	if (vchan->hw_lli_size) {
+		rtk_dma_pause(chan);
+		while (timeout--) {
+			dev_dbg(rsdma->dma.dev, "RTK_DMA_CHAN_CFG_L = 0x%08X\n", rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_CFG_L));
+			if ((rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_CFG_L) & BIT(0))
+				  || ((rsdma_readl(rsdma->base, RTK_DMA_CHANNEL_EN_L) & BIT(vchan->pchan->id)) == 0)) {
+					dev_dbg(rsdma->dma.dev, "Suspend success!!");
+					break;
+				  }
+			if (timeout == 0) {
+				rtk_dma_resume(chan);
+				return -EFAULT;
+			}
+		}
+		rtk_dma_terminate_pchan(rsdma, vchan->pchan);
+	}
 
 	spin_lock_irqsave(&vchan->vc.lock, flags);
 
@@ -901,6 +925,13 @@ static int rtk_dma_pause(struct dma_chan *chan)
 	unsigned long flags;
 	u32 temp;
 
+	if (vchan->hw_lli_size) {
+		temp = rsdma_readl(vchan->pchan->base, RTK_DMA_CHAN_CFG_L);
+		rsdma_writel(vchan->pchan->base, RTK_DMA_CHAN_CFG_L, temp | BIT_DMA_CFG_CH_SUSP(1));
+		vchan->pchan->dma_pause.status = DMA_PAUSED_NOW;
+		return 0;
+	}
+
 	spin_lock_irqsave(&vchan->vc.lock, flags);
 
 	if (!vchan->pchan) {
@@ -939,6 +970,14 @@ static int rtk_dma_resume(struct dma_chan *chan)
 	u32 temp;
 	int ret = 0;
 	struct rtk_dma *rsdma = to_rtk_dma(chan->device);
+
+	if (vchan->hw_lli_size) {
+		temp = rsdma_readl(vchan->pchan->base, RTK_DMA_CHAN_CFG_L);
+		rsdma_writel(vchan->pchan->base, RTK_DMA_CHAN_CFG_L, ~(~temp | BIT_DMA_CFG_CH_SUSP(1)));
+		rtk_dma_channel_enable(rsdma, vchan->pchan->id, ENABLE);
+		vchan->pchan->dma_pause.status = DMA_RESUMED_NOW;
+		return 0;
+	}
 
 	spin_lock_irqsave(&vchan->vc.lock, flags);
 
@@ -1000,11 +1039,18 @@ static enum dma_status rtk_dma_tx_status(struct dma_chan *chan,
 		struct dma_tx_state *state)
 {
 	struct rtk_dma_vchan *vchan = to_rtk_vchan(chan);
-	int completed_count = 0;
+	struct rtk_dma *rsdma = to_rtk_dma(vchan->vc.chan.device);
+	struct dma_slave_config *sconfig = &vchan->cfg;
 
-	if (state) {
-		completed_count = rsdma_readl(vchan->pchan->base, RTK_DMA_CHAN_CTL_U);
-		state->residue = completed_count;
+	if (state && sconfig) {
+		if (sconfig->direction == DMA_DEV_TO_MEM) {
+			state->residue = rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_DAR_L);
+		} else if (sconfig->direction == DMA_MEM_TO_DEV) {
+			state->residue = rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_SAR_L);
+		} else {
+			dev_dbg(rsdma->dma.dev, "Tx status do not support residue in this direction.");
+			state->residue = 0;
+		}
 	}
 
 	switch (vchan->pchan->dma_pause.status) {
@@ -1129,7 +1175,7 @@ static struct dma_async_tx_descriptor
 
 		ret = rtk_dma_hw_cfg_lli(vchan, lli, src + offset, dst + offset,
 								 bytes, DMA_MEM_TO_MEM,
-								 &vchan->cfg, txd, 0);
+								 &vchan->cfg, txd);
 		if (ret) {
 			dev_warn(rsdma->dma.dev, "Failed to config lli\n");
 			goto err_txd_free;
@@ -1157,59 +1203,71 @@ static struct dma_async_tx_descriptor
 	struct rtk_dma_vchan *vchan = to_rtk_vchan(chan);
 	struct dma_slave_config *sconfig = &vchan->cfg;
 	struct rtk_dma_txd *txd;
-	struct rtk_dma_lli *lli, *prev = NULL;
+	struct rtk_dma_lli *lli;
 	struct scatterlist *sg = NULL;
-	dma_addr_t addr, src = 0, dst = 0;
-	size_t len;
+	struct hw_lli_block *hwlli_buffers = NULL;
+	struct rtk_dma_hw_cfg *hw_cfg = NULL;
+	dma_addr_t hwlli_dma_addrs = 0, dma_addr = 0;
 	int ret, i = 0;
+	unsigned int length = 0;
+
+	if ((dir != DMA_DEV_TO_MEM) && (dir != DMA_MEM_TO_DEV)) {
+		dev_err(rsdma->dma.dev, "sg mode do not support the dir: %d\n", dir);
+		return NULL;
+	}
 
 	txd = rtk_dma_find_unused_txd(vchan);
+	INIT_LIST_HEAD(&txd->lli_list);
+
+	txd->cyclic = true;
+
 	if (!txd) {
 		dev_err(rsdma->dma.dev, "No free TXD available for channel %d\n", vchan->vc.chan.chan_id);
 		return NULL;
 	}
 
-	INIT_LIST_HEAD(&txd->lli_list);
+	vchan->hw_lli_size = sg_len * sizeof(struct hw_lli_block);
+
+	hwlli_buffers = (struct hw_lli_block *) dma_alloc_coherent(rsdma->dma.dev, sg_len * sizeof(struct hw_lli_block), &hwlli_dma_addrs, GFP_KERNEL);
+	vchan->hwlli_buffers = hwlli_buffers;
+	vchan->hwlli_dma_addrs = hwlli_dma_addrs;
+
+	lli = rtk_dma_alloc_lli(rsdma);
+	if (!lli) {
+		dev_warn(rsdma->dma.dev, "Failed to allocate lli\n");
+		goto err_txd_free;
+	}
+
+	ret = rtk_dma_hw_cfg_lli(vchan, lli, sconfig->src_addr, sconfig->dst_addr, 0, dir, sconfig, txd);
+	hw_cfg = &lli->hw;
+	hw_cfg->llpx = hwlli_dma_addrs;
+
+	rtk_dma_add_lli(txd, NULL, lli, false);
 
 	for_each_sg(sgl, sg, sg_len, i) {
-		addr = sg_dma_address(sg);
-		len = sg_dma_len(sg);
+		dma_addr = sg_dma_address(sg);
+		length = sg_dma_len(sg);
 
-		if (len > RTK_DMA_FRAME_MAX_LENGTH) {
-			dev_err(rsdma->dma.dev,
-					"Frame length exceeds max supported length\n");
-			goto err_txd_free;
-		}
-
-		lli = rtk_dma_alloc_lli(rsdma);
-		if (!lli) {
-			dev_err(rsdma->dma.dev, "Failed to allocate lli\n");
-			goto err_txd_free;
-		}
-
-		if (dir == DMA_MEM_TO_DEV) {
-			src = addr;
-			dst = sconfig->dst_addr;
+		hwlli_buffers[i].Sarx = (dir == DMA_MEM_TO_DEV) ? dma_addr : 0;
+		hwlli_buffers[i].Darx = (dir == DMA_DEV_TO_MEM) ? dma_addr : 0;
+		if (i != (sg_len - 1)) {
+			hwlli_buffers[i].Llpx = hwlli_dma_addrs + (i + 1) * sizeof(struct hw_lli_block);
 		} else {
-			src = sconfig->src_addr;
-			dst = addr;
+			hwlli_buffers[i].Llpx = hwlli_dma_addrs;
 		}
+		hwlli_buffers[i].CtlxLow = hw_cfg->ctlx_low;
+		hwlli_buffers[i].CtlxUp = BIT_DMA_CTL_BLOCK_TS_U(length / sconfig->src_addr_width);
 
-		ret = rtk_dma_hw_cfg_lli(vchan, lli, src, dst, len, dir, sconfig,
-								 txd, 0);
-		if (ret) {
-			dev_warn(rsdma->dma.dev, "Failed to config lli\n");
-			goto err_txd_free;
-		}
-
-		prev = rtk_dma_add_lli(txd, prev, lli, false);
+		dev_dbg(rsdma->dma.dev, "HW-LLI SRC(%d) = %x.", i, hwlli_buffers[i].Sarx);
+		dev_dbg(rsdma->dma.dev, "HW-LLI DST(%d) = %x.", i, hwlli_buffers[i].Darx);
+		dev_dbg(rsdma->dma.dev, "SET block size 0x%x", hwlli_buffers[i].CtlxUp);
+		dev_dbg(rsdma->dma.dev, "SET LLPx %x", hwlli_buffers[i].Llpx);
 	}
 
 	return vchan_tx_prep(&vchan->vc, &txd->vd, flags);
 
 err_txd_free:
 	rtk_dma_free_txd(rsdma, txd);
-
 	return NULL;
 }
 
@@ -1230,16 +1288,11 @@ static struct dma_async_tx_descriptor
 	dma_addr_t src = 0, dst = 0;
 	unsigned int periods = buf_len / period_len;
 	int ret, i;
-	bool interrupt_en;
 
-	interrupt_en = flags & DMA_PREP_INTERRUPT;
-	if (!interrupt_en) {
-		/* Do not trigger callback after dma success, use auto-reload mode. */
-		dev_dbg(rsdma->dma.dev, "Enter DMA auto-reload mode\n");
-		if (period_len != buf_len) {
-			dev_warn(rsdma->dma.dev, "Wrong period length for DMA auto-reload mode\n");
-			return NULL;
-		}
+	if (!(flags & DMA_PREP_INTERRUPT)) {
+		dev_warn(rsdma->dma.dev,
+			  "No-interrupt-mode for <rtk_prep_dma_cyclic> is not supported now, use <rtk_dma_prep_slave_sg> instead!!\n");
+		return NULL;
 	}
 
 	txd = rtk_dma_find_unused_txd(vchan);
@@ -1269,7 +1322,7 @@ static struct dma_async_tx_descriptor
 		}
 
 		ret = rtk_dma_hw_cfg_lli(vchan, lli, src, dst, period_len,
-								 dir, sconfig, txd, interrupt_en);
+								 dir, sconfig, txd);
 
 		if (ret) {
 			dev_warn(rsdma->dma.dev, "Failed to config lli\n");
@@ -1297,6 +1350,13 @@ static void rtk_dma_free_chan_resources(struct dma_chan *chan)
 {
 	struct rtk_dma *rsdma = to_rtk_dma(chan->device);
 	struct rtk_dma_vchan *vchan = to_rtk_vchan(chan);
+
+	if (vchan->hw_lli_size) {
+		dma_free_coherent(rsdma->dma.dev, vchan->hw_lli_size, vchan->hwlli_buffers, vchan->hwlli_dma_addrs);
+		vchan->hw_lli_size = 0;
+		vchan->hwlli_buffers = NULL;
+		vchan->hwlli_dma_addrs = 0;
+	}
 
 	/* Ensure all queued descriptors are freed */
 	vchan_free_chan_resources(&vchan->vc);
@@ -1492,6 +1552,10 @@ static int rtk_dma_probe(struct platform_device *pdev)
 		vchan->txd[i].allocated = false;
 		vchan->txd[i].is_active = false;
 		vchan->txd[i].vchan = NULL;
+
+		vchan->hw_lli_size = 0;
+		vchan->hwlli_buffers = NULL;
+		vchan->hwlli_dma_addrs = 0;
 	}
 
 	/* Create a pool of consistent memory blocks for hardware descriptors */
