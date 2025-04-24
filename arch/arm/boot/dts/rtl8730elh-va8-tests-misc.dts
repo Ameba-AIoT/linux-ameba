@@ -91,7 +91,7 @@
 &codec{
 	pinctrl-names = "default";
 	pinctrl-0 = <&audio_ext_amp_pins>;
-	ext_amp_gpio = <&gpiob 31 0>;
+	ext_amp_gpio = <&gpiob 19 0>;
 };
 
 &ledc{

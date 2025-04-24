@@ -18,7 +18,7 @@
 
 			audio_ext_amp_pins:audio_ext_pin@0 { // Fixed for EV730EL0_3V0 demo board
 				pins {
-					pinmux = <REALTEK_PINMUX('B',31, GPIO)>;
+					pinmux = <REALTEK_PINMUX('B',19, GPIO)>;
 					bias-disable;	//bias-disable/bias-pull-up/bias-pull-down(no pull/pull up/pull down)
 				};
 			};
@@ -124,7 +124,7 @@
 							<REALTEK_PINMUX('B', 16, I2S2)>,  // I2S2_WS
 							<REALTEK_PINMUX('B', 17, I2S2)>,  // I2S2_DIN0
 							<REALTEK_PINMUX('B', 18, I2S2)>,  // I2S2_DIN1
-							<REALTEK_PINMUX('B', 19, I2S2)>,  // I2S2_DIN2
+							<REALTEK_PINMUX('B', 31, I2S2)>,  // I2S2_DIN2
 							<REALTEK_PINMUX('B', 20, I2S2)>;  // I2S2_DIN3
 					bias-disable;	//bias-disable/bias-pull-up/bias-pull-down(no pull/pull up/pull down)
 					slew-rate = <0>;
