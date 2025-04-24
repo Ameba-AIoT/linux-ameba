@@ -418,38 +418,47 @@ static int load_dma_period(struct snd_pcm_substream *substream, struct ameba_pcm
 	config.dst_port_window_size = 0;
 
 	config.device_fc = 1;
+	config.direction = dir;
 
 	chan = data->chan;
 	desc = data->desc;
 
 	ret = dmaengine_slave_config(chan, &config);
 	if (ret) {
-		dma_info(1,component->dev,"failed to set slave configuration: %d\n", ret);
+		dma_info(1, component->dev,"failed to set slave configuration: %d\n", ret);
 		return ret;
 	}
 
-	if (is_playback) {
-		if (!runtime->no_period_wakeup)
+	if (!runtime->no_period_wakeup) {
+		if (is_playback) {
 			desc = dmaengine_prep_dma_cyclic(chan,
-				config.src_addr, data->period_bytes, data->period_bytes/2, dir, DMA_PREP_INTERRUPT);
-		else
+				config.src_addr, data->period_bytes, data->period_bytes / 2, dir, DMA_PREP_INTERRUPT);
+		} else {
+			//at least 2 rounds for dma driver
 			desc = dmaengine_prep_dma_cyclic(chan,
-				config.src_addr, data->buffer_size, data->buffer_size, dir, 0);
-	} else {
-		if (!runtime->no_period_wakeup)
-			desc = dmaengine_prep_dma_cyclic(chan,
-				config.dst_addr, data->period_bytes, data->period_bytes/2, dir, DMA_PREP_INTERRUPT);//at lease 2 rounds for dma driver
-		else
-			desc = dmaengine_prep_dma_cyclic(chan,
-				config.dst_addr, data->buffer_size, data->buffer_size, dir, 0);
-	}
+				config.dst_addr, data->period_bytes, data->period_bytes / 2, dir, DMA_PREP_INTERRUPT);
+		}
 
-    if (!runtime->no_period_wakeup) {
 		desc->callback = (dma_async_tx_callback)ameba_alsa_callback_handle;
 
 		data->dma_param.substream = substream;
 		data->dma_param.dma_id = dma_id;
 		desc->callback_param = &data->dma_param;
+
+	} else {
+		enum dma_ctrl_flags flags = 0;
+		struct scatterlist sg_list[data->period_num];
+		sg_init_table(sg_list, data->period_num);
+
+		int i;
+		for (i = 0; i < data->period_num; i++) {
+			sg_dma_address(&sg_list[i]) = runtime->dma_addr + data->period_bytes * i;
+			sg_dma_len(&sg_list[i]) = data->period_bytes;
+			dma_info(1, component->dev,"addr:%d %d %d %x %x\n",
+					i, data->period_num, data->period_bytes, runtime->dma_addr, sg_list[i].dma_address);
+		}
+
+		desc = dmaengine_prep_slave_sg(chan, sg_list, data->period_num, dir, flags);
 	}
 
 	data->desc = desc;
@@ -753,14 +762,16 @@ static snd_pcm_uframes_t
 	struct ameba_pcm_dma_data *data_0;
 	struct dma_tx_state state;
 
+	ssize_t offset_size = 0;
 	data_0 = &(dma_private->pcm_data_0);
 	if (runtime->no_period_wakeup) {
 		dmaengine_tx_status(data_0->chan, data_0->cookie, &state);
-		//dma_info(1, component->dev, "delivered bytes:%d, res:%d", state.residue, res);
+		//for lli, state.residue means dma address.
+		offset_size = state.residue - runtime->dma_addr;
 	}
 
 	if (runtime->no_period_wakeup)
-		return bytes_to_frames(substream->runtime, state.residue);
+		return bytes_to_frames(substream->runtime, offset_size);
 	else
 		return bytes_to_frames(substream->runtime, data_0->dma_addr_offset);
 }
