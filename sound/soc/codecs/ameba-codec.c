@@ -67,6 +67,8 @@ struct ameba_priv {
 
 	int gpio_index;
 	bool enable_dac_asrc;
+
+	int inited;
 };
 
 #define codec_info(mask,dev, ...)						\
@@ -615,6 +617,71 @@ static int alsa_dac_eq_band_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static void alsa_setup_gpio(struct ameba_priv * codec_priv, int32_t value)
+{
+	if (codec_priv->gpio_index >= 0) {
+		gpio_request(codec_priv->gpio_index, NULL);
+		gpio_direction_output(codec_priv->gpio_index, 1);
+		gpio_set_value(codec_priv->gpio_index, value);
+		gpio_free(codec_priv->gpio_index);
+	}
+}
+
+static int alsa_codec_init_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct ameba_priv * codec_priv = snd_soc_component_get_drvdata(component);
+
+	ucontrol->value.integer.value[0] = codec_priv->inited;
+
+	return 0;
+}
+
+static void alsa_codec_init(struct ameba_priv * codec_priv)
+{
+	audio_codec_enable(codec_priv->digital_addr,codec_priv->analog_addr);
+
+	audio_codec_init(codec_priv->digital_addr,codec_priv->analog_addr);
+
+	audio_codec_set_hpo_diff(codec_priv->analog_addr);
+
+	audio_codec_set_dac_volume(0, MAX_VOLUME, codec_priv->digital_addr);
+	audio_codec_set_dac_volume(1, MAX_VOLUME, codec_priv->digital_addr);
+
+	audio_codec_zdet_init(DA_ZDET_TOUT_LEVEL1, codec_priv->digital_addr);
+
+	audio_codec_amic_power(codec_priv->digital_addr,codec_priv->analog_addr);
+
+	codec_priv->inited = 1;
+}
+
+static void alsa_codec_deinit(struct ameba_priv * codec_priv)
+{
+	audio_codec_deinit(codec_priv->digital_addr,codec_priv->analog_addr);
+	audio_codec_amic_deinit(codec_priv->digital_addr,codec_priv->analog_addr);
+	audio_codec_disable(codec_priv->analog_addr);
+
+	codec_priv->inited = 0;
+}
+
+static int alsa_codec_init_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct ameba_priv * codec_priv = snd_soc_component_get_drvdata(component);
+
+	unsigned int val = (unsigned int)ucontrol->value.integer.value[0];
+	if (val == 1){
+		alsa_codec_init(codec_priv);
+		alsa_setup_gpio(codec_priv, 1);
+	} else {
+		alsa_setup_gpio(codec_priv, 0);
+		alsa_codec_deinit(codec_priv);
+	}
+
+	return 0;
+}
 
 static const DECLARE_TLV_DB_SCALE(digital_tlv, -6562, 37, 0);  //min db: -65.625db, max db:0db,step:0.375db/step
 static const struct snd_kcontrol_new common_snd_controls[] = {
@@ -656,6 +723,9 @@ static const struct snd_kcontrol_new common_snd_controls[] = {
 	SND_SOC_BYTES_EXT("DAC EQ BAND Enable", 3,
 				alsa_dac_eq_band_get,
 				alsa_dac_eq_band_put),
+	SOC_SINGLE_EXT("Codec Init", 0, 0, 1, 0,
+				alsa_codec_init_get,
+				alsa_codec_init_put),
 };
 
 static int ameba_codec_dai_set_dai_sysclk(struct snd_soc_dai *dai,
@@ -1134,30 +1204,14 @@ static int ameba_codec_component_probe(struct snd_soc_component *component)
 
 	codec_info(1,component->dev,"%s,digital_addr:%x",__func__,(u32)codec_priv->digital_addr);
 
-	audio_codec_enable(codec_priv->digital_addr,codec_priv->analog_addr);
-
-	audio_codec_init(codec_priv->digital_addr,codec_priv->analog_addr);
-
-	audio_codec_set_hpo_diff(codec_priv->analog_addr);
-
-	audio_codec_set_dac_volume(0, MAX_VOLUME, codec_priv->digital_addr);
-	audio_codec_set_dac_volume(1, MAX_VOLUME, codec_priv->digital_addr);
-
-	audio_codec_zdet_init(DA_ZDET_TOUT_LEVEL1, codec_priv->digital_addr);
-
-	audio_codec_amic_power(codec_priv->digital_addr,codec_priv->analog_addr);
+	alsa_codec_init(codec_priv);
 
 	snd_soc_add_component_controls(component, common_snd_controls,
 				       ARRAY_SIZE(common_snd_controls));
 
 	msleep(10);
 
-	if (codec_priv->gpio_index >= 0) {
-		gpio_request(codec_priv->gpio_index, NULL);
-		gpio_direction_output(codec_priv->gpio_index, 1);
-		gpio_set_value(codec_priv->gpio_index, 1);
-		gpio_free(codec_priv->gpio_index);
-	}
+	alsa_setup_gpio(codec_priv, 1);
 
 	return 0;
 }
@@ -1165,8 +1219,9 @@ static int ameba_codec_component_probe(struct snd_soc_component *component)
 static void ameba_codec_component_remove(struct snd_soc_component *component)
 {
 	struct ameba_priv * codec_priv = snd_soc_component_get_drvdata(component);
-	audio_codec_deinit(codec_priv->digital_addr,codec_priv->analog_addr);
-	audio_codec_amic_deinit(codec_priv->digital_addr,codec_priv->analog_addr);
+
+	alsa_codec_deinit(codec_priv);
+
 }
 
 static int ameba_codec_component_suspend(struct snd_soc_component *component)
@@ -1175,9 +1230,7 @@ static int ameba_codec_component_suspend(struct snd_soc_component *component)
 
 	codec_info(1, component->dev,"%s",__func__);
 
-	audio_codec_deinit(codec_priv->digital_addr,codec_priv->analog_addr);
-	audio_codec_amic_deinit(codec_priv->digital_addr,codec_priv->analog_addr);
-	audio_codec_disable(codec_priv->analog_addr);
+	alsa_codec_deinit(codec_priv);
 
 	//clk_disable_unprepare(codec_priv->clock);
 
@@ -1192,18 +1245,7 @@ static int ameba_codec_component_resume(struct snd_soc_component *component)
 
 	//clk_prepare_enable(codec_priv->clock);
 
-	audio_codec_enable(codec_priv->digital_addr,codec_priv->analog_addr);
-
-	audio_codec_init(codec_priv->digital_addr,codec_priv->analog_addr);
-
-	audio_codec_set_hpo_diff(codec_priv->analog_addr);
-
-	audio_codec_set_dac_volume(0, MAX_VOLUME, codec_priv->digital_addr);
-	audio_codec_set_dac_volume(1, MAX_VOLUME, codec_priv->digital_addr);
-
-	audio_codec_zdet_init(DA_ZDET_TOUT_LEVEL1, codec_priv->digital_addr);
-
-	audio_codec_amic_power(codec_priv->digital_addr,codec_priv->analog_addr);
+	alsa_codec_init(codec_priv);
 
 	return 0;
 }
@@ -1373,6 +1415,8 @@ static int ameba_codec_probe(struct platform_device *pdev)
 
 	codec_priv->dai_fmt[0] = DF_LEFT;
 	codec_priv->dai_fmt[1] = DF_LEFT;
+
+	codec_priv->inited = 0;
 
 	codec_info(1,&pdev->dev,"%s,digital_base:%x,digital_size:%x,analog_base:%x,analog_size:%x\n",__func__,codec_priv->digital_base,codec_priv->digital_size, codec_priv->analog_base, codec_priv->analog_size);	
 	codec_info(1,&pdev->dev,"tdm_amic_0:%d, amic_1:%d, amic_2:%d, amic_3:%d", codec_priv->tdm_amic_numbers[0], codec_priv->tdm_amic_numbers[1], codec_priv->tdm_amic_numbers[2], codec_priv->tdm_amic_numbers[3]);
