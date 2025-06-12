@@ -1880,3 +1880,110 @@ void audio_codec_set_dac_asrc_rate(int rate, void __iomem *audio_base_addr)
 	tmp |= AUD_ASRC_RATE_SEL_TX(sel);
 	writel(tmp, audio_base_addr + CODEC_ASRC_CONTROL_0);
 }
+
+#define DEAL_ADC_SET_ADCHPF_ENABLE_FUNC(x) { \
+										tmp = readl(audio_base_addr + CODEC_ADC_##x##_CONTROL_0);\
+										tmp &= ~AUD_MASK_ADC_##x##_DCHPF_FC_SEL;\
+										tmp |= AUD_BIT_ADC_##x##_DCHPF_EN | AUD_ADC_##x##_DCHPF_FC_SEL(fc); \
+										writel(tmp, audio_base_addr + CODEC_ADC_##x##_CONTROL_0); }
+
+#define DEAL_ADC_SET_ADCHPF_DISABLE_FUNC(x) { \
+										tmp = readl(audio_base_addr + CODEC_ADC_##x##_CONTROL_0);\
+										tmp &= ~AUD_BIT_ADC_##x##_DCHPF_EN;\
+										writel(tmp, audio_base_addr + CODEC_ADC_##x##_CONTROL_0); }
+/**
+  * @brief  Set per ADC channel
+  * @param  ad_channel_num: select adc channel.
+  *			 This parameter can be one of the following values:
+  *			   @arg AD_CHANNEL_0
+  *			   @arg AD_CHANNEL_1
+  *			   @arg AD_CHANNEL_2
+  *			   @arg AD_CHANNEL_3
+  *			   @arg AD_CHANNEL_4
+  *			   @arg AD_CHANNEL_5
+  *			   @arg AD_CHANNEL_6
+  *			   @arg AD_CHANNEL_7
+  * @param  fc: select high pass filter fc
+  *			 This parameter can be one of the following values:
+  *			   @arg 0：5e10^-3 Fs
+  *			   @arg 1：2.5e10^-3 Fs
+  *			   @arg 2：1.125e10^-3 Fs
+  *			   @arg 3: 6.25e10^-4 Fs
+  *			   @arg 4: 3.125e10^-4 Fs
+  *			   @arg 5: 1.5625e10^-4 Fs
+  *			   @arg 6: 7.8125e10^-5 Fs
+  *			   @arg 7: 3.90625e10^-5 Fs
+  * @param  new_state: enable or disable per ad channel HPF mode
+  *			 This parameter can be one of the following values:
+  *			   @arg true
+  *			   @arg false
+  * @return  None
+  */
+void audio_codec_set_adc_hpf(u32 ad_channel_num, u32 fc, bool new_state, void __iomem *audio_base_addr)
+{
+	u32 tmp;
+
+	if (new_state == true) {
+		switch (ad_channel_num)
+		{
+		case AD_CHANNEL_0:
+			DEAL_ADC_SET_ADCHPF_ENABLE_FUNC(0);
+			break;
+		case AD_CHANNEL_1:
+			DEAL_ADC_SET_ADCHPF_ENABLE_FUNC(1);
+			break;
+		case AD_CHANNEL_2:
+			DEAL_ADC_SET_ADCHPF_ENABLE_FUNC(2);
+			break;
+		case AD_CHANNEL_3:
+			DEAL_ADC_SET_ADCHPF_ENABLE_FUNC(3);
+			break;
+		case AD_CHANNEL_4:
+			DEAL_ADC_SET_ADCHPF_ENABLE_FUNC(4);
+			break;
+		case AD_CHANNEL_5:
+			DEAL_ADC_SET_ADCHPF_ENABLE_FUNC(5);
+			break;
+		case AD_CHANNEL_6:
+			DEAL_ADC_SET_ADCHPF_ENABLE_FUNC(6);
+			break;
+		case AD_CHANNEL_7:
+			DEAL_ADC_SET_ADCHPF_ENABLE_FUNC(7);
+			break;
+		default:
+			break;
+		}
+
+	} else {
+		switch (ad_channel_num)
+		{
+		case AD_CHANNEL_0:
+			DEAL_ADC_SET_ADCHPF_DISABLE_FUNC(0);
+			break;
+		case AD_CHANNEL_1:
+			DEAL_ADC_SET_ADCHPF_DISABLE_FUNC(1);
+			break;
+		case AD_CHANNEL_2:
+			DEAL_ADC_SET_ADCHPF_DISABLE_FUNC(2);
+			break;
+		case AD_CHANNEL_3:
+			DEAL_ADC_SET_ADCHPF_DISABLE_FUNC(3);
+			break;
+		case AD_CHANNEL_4:
+			DEAL_ADC_SET_ADCHPF_DISABLE_FUNC(4);
+			break;
+		case AD_CHANNEL_5:
+			DEAL_ADC_SET_ADCHPF_DISABLE_FUNC(5);
+			break;
+		case AD_CHANNEL_6:
+			DEAL_ADC_SET_ADCHPF_DISABLE_FUNC(6);
+			break;
+		case AD_CHANNEL_7:
+			DEAL_ADC_SET_ADCHPF_DISABLE_FUNC(7);
+			break;
+		default:
+			break;
+		}
+	}
+
+}
