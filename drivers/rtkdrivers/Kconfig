@@ -75,4 +75,6 @@ source "drivers/rtkdrivers/bluetooth/Kconfig"
 
 source "drivers/rtkdrivers/audio_pll/Kconfig"
 
+source "drivers/rtkdrivers/hw_random/Kconfig"
+
 endif

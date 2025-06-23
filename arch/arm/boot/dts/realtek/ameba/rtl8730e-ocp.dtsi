@@ -308,6 +308,12 @@
 			status = "disabled";
 		};
 
+		trng: rng@41009000 {
+			compatible = "rtk,ameba-trng";
+			reg = <0x41009000 0x100>;
+			status = "okay";
+		};
+
 		thermal: thermal@42013000 {
 			compatible = "realtek,ameba-thermal";
 			reg = <0x42013000 0x100>;
