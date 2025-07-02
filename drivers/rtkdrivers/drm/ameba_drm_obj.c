@@ -195,7 +195,7 @@ static int ameba_crtc_enable_vblank(struct drm_crtc *crtc)
 
 	lcdc_ctx = kcrtc->lcdc_hw_ctx;
 
-	ameba_lcdc_irq_enable(lcdc_ctx->lcdc_reg, LCDC_BIT_LCD_LIN_INTEN, 1);
+	ameba_lcdc_irq_config(lcdc_ctx->lcdc_reg, LCDC_BIT_LCD_LIN_INTEN, 1);
 	ameba_lcdc_enable_SHW(lcdc_ctx->lcdc_reg);
 	return 0 ;
 }
@@ -210,7 +210,8 @@ static void ameba_crtc_disable_vblank(struct drm_crtc *crtc)
 		return;
 
 	lcdc_ctx = (struct lcdc_hw_ctx_type *)(kcrtc->lcdc_hw_ctx);
-	ameba_lcdc_irq_enable(lcdc_ctx->lcdc_reg, LCDC_BIT_LCD_LIN_INTEN, 0);
+	ameba_lcdc_irq_config(lcdc_ctx->lcdc_reg, LCDC_BIT_LCD_LIN_INTEN | LCDC_BIT_DMA_UN_INTEN, 0);
+	ameba_lcdc_irq_clear_all(lcdc_ctx->lcdc_reg);
 	ameba_lcdc_enable_SHW(lcdc_ctx->lcdc_reg);
 }
 
@@ -239,10 +240,10 @@ static irqreturn_t ameba_irq_handler(int irq, void *data)
 
 	if ((lcdc_ctx->pm_status == 0) && (irq_status & LCDC_BIT_DMA_UN_INTS)) {
 		AMEBA_DRM_DEBUG();
-		ameba_struct->under_flow_count ++;
-		ameba_struct->under_flow_flag ++;
+		ameba_struct->under_flow_count++;
+		ameba_struct->under_flow_flag++;
 		if (1 == ameba_struct->under_flow_flag) {
-			DRM_DEBUG_DRIVER("Underflow happen [%d-%d]\n",ameba_struct->under_flow_count,ameba_struct->under_flow_flag);
+			DRM_DEBUG_DRIVER("Underflow happen [%d-%d]\n",ameba_struct->under_flow_count, ameba_struct->under_flow_flag);
 			dsi = (struct ameba_drm_reg_t *)dev_get_drvdata(ameba_struct->dsi_dev);
 			ameba_lcdc_dsi_underflow_reset(dsi->reg);
 		}
@@ -321,14 +322,11 @@ static void ameba_crtc_atomic_disable(struct drm_crtc *crtc,
 	ctx = kcrtc->lcdc_hw_ctx;
 	drm_crtc_vblank_off(crtc);
 
-	if(ctx->pm_status) {
-		DRM_DEBUG("Close lcdc clk\n");
-		clk_disable_unprepare(ctx->lcdc_clk);
-		ctx->lcdc_config = 0;
-		ameba_lcdc_enable(ctx->lcdc_reg, 0);
-		ameba_lcdc_enable_SHW(ctx->lcdc_reg);
-	}
+	ctx->lcdc_config = 0;
+	ameba_lcdc_enable(ctx->lcdc_reg, 0);
+	ameba_lcdc_enable_SHW(ctx->lcdc_reg);
 
+	clk_disable_unprepare(ctx->lcdc_clk);
 	kcrtc->enable = false;
 }
 
@@ -744,11 +742,11 @@ static void ameba_drm_reconfig_hw(struct lcdc_hw_ctx_type *lcdc_ctx, struct ameb
 {
 	u8                          idx;
 	size_t                      new_size;
-	LCDC_InitTypeDef            *lcdc_tmp ;
+	LCDC_InitTypeDef            *lcdc_tmp;
 
 	AMEBA_DRM_DEBUG();
 
-	lcdc_tmp = &(lcdc_ctx->lcdc_initdef) ;
+	lcdc_tmp = &(lcdc_ctx->lcdc_initdef);
 
 	/* init the lcdc info */
 	ameba_lcdc_reset_config(lcdc_tmp, ameba_struct->display_hdisplay, ameba_struct->display_vdisplay, lcdc_ctx->lcdc_bkg_color);
@@ -761,17 +759,6 @@ static void ameba_drm_reconfig_hw(struct lcdc_hw_ctx_type *lcdc_ctx, struct ameb
 
 	/* line number interrupt */
 	ameba_lcdc_irq_linepos(lcdc_ctx->lcdc_reg, ameba_struct->display_vdisplay * 4 / 5);
-	/* enable dma underflow interrupt */
-	ameba_lcdc_irq_config(lcdc_ctx->lcdc_reg, LCDC_BIT_DMA_UN_INTEN, 1);
-
-	if (lcdc_ctx->ldcd_writeback_buffer) {
-		ameba_lcdc_dma_debug_config(lcdc_ctx->lcdc_reg, LCDC_DMA_OUT_ENABLE, (u32)lcdc_ctx->ldcd_writeback_buffer);
-	} else {
-		ameba_lcdc_dma_debug_config(lcdc_ctx->lcdc_reg, LCDC_DMA_OUT_DISABLE, 0);
-	}
-
-	/* set valid , disable all display , it should not display anything right now */
-	ameba_lcdc_config_setvalid(lcdc_ctx->lcdc_reg, lcdc_tmp);
 
 	/* layer info */
 	for (idx = 0; idx < LCDC_LAYER_MAX_NUM; idx++) {
@@ -798,6 +785,17 @@ static void ameba_drm_reconfig_hw(struct lcdc_hw_ctx_type *lcdc_ctx, struct ameb
 		}
 	}
 
+	/* enable dma underflow interrupt Jessica: prepare sw first, then hardware. */
+	ameba_lcdc_irq_config(lcdc_ctx->lcdc_reg, LCDC_BIT_DMA_UN_INTEN, 1);
+
+	if (lcdc_ctx->ldcd_writeback_buffer) {
+		ameba_lcdc_dma_debug_config(lcdc_ctx->lcdc_reg, LCDC_DMA_OUT_ENABLE, (u32)lcdc_ctx->ldcd_writeback_buffer);
+	} else {
+		ameba_lcdc_dma_debug_config(lcdc_ctx->lcdc_reg, LCDC_DMA_OUT_DISABLE, 0);
+	}
+
+	/* set valid , disable all display , it should not display anything right now */
+	ameba_lcdc_config_setvalid(lcdc_ctx->lcdc_reg, lcdc_tmp);
 	ameba_lcdc_enable_SHW(lcdc_ctx->lcdc_reg);
 }
 
@@ -811,8 +809,6 @@ static void ameba_hw_ctx_cleanup(struct platform_device *pdev, void *hw_ctx)
 
 	/* release all resource */
 	devm_free_irq(dev, lcdc_ctx->irq, ameba_struct);
-
-	clk_disable_unprepare(lcdc_ctx->lcdc_clk);
 
 	for (ret = 0 ; ret < LCDC_LAYER_MAX_NUM; ret ++) {
 		struct ameba_buf_struct * layinfo = &(sec_layer_info[ret]);

@@ -157,12 +157,20 @@ void ameba_lcdc_reg_dump(void __iomem *address, const char *filename)
 
 void ameba_lcdc_enable(void __iomem *address, u32 NewState)
 {
+	int retry = 0;
+
 	if (0 == NewState) {
 		LCDC_Cmd(address, 0);
 	} else {
 		/*enable the LCDC*/
 		LCDC_Cmd(address, 1);
-		while (!LCDC_CheckLCDCReady(address));
+		while (!LCDC_CheckLCDCReady(address)) {
+			retry++;
+			if (retry > 100) {
+				DRM_WARN("LCDC cannot be ready !!!!");
+				break;
+			}
+		}
 	}
 }
 
@@ -243,12 +251,6 @@ void ameba_lcdc_dma_get_unint_cnt(void __iomem *address, u32 *DmaUnIntCnt)
 	LCDC_GetDmaUnINTCnt(address, DmaUnIntCnt);
 }
 
-//lcdc irq issue
-void ameba_lcdc_irq_enable(void __iomem *address, u32 LCDC_IT, u32 NewState)
-{
-	LCDC_INTConfig(address, LCDC_IT, NewState);
-}
-
 void ameba_lcdc_irq_linepos(void __iomem *address, u32 LineNum)
 {
 	LCDC_LineINTPosConfig(address, LineNum);
@@ -257,6 +259,11 @@ void ameba_lcdc_irq_linepos(void __iomem *address, u32 LineNum)
 void ameba_lcdc_irq_config(void __iomem *address, u32 intType, u32 NewState)
 {
 	LCDC_INTConfig(address, intType, NewState);
+}
+
+void ameba_lcdc_irq_clear_all(void __iomem *address)
+{
+	LCDC_ClearAllINT(address);
 }
 
 ///layer

@@ -49,9 +49,9 @@ void ameba_lcdc_dma_debug_config(void __iomem * address,u32 writeBackFlag, u32 I
 void ameba_lcdc_dma_get_unint_cnt(void __iomem * address,u32* DmaUnIntCnt);
 
 //lcdc irq issue
-void ameba_lcdc_irq_enable(void __iomem * address,u32 LCDC_IT, u32 NewState);
 void ameba_lcdc_irq_linepos(void __iomem * address,u32 LineNum);
 void ameba_lcdc_irq_config(void __iomem * address,u32 intType, u32 NewState);
+void ameba_lcdc_irq_clear_all(void __iomem *address);
 
 //layer reg
 void ameba_lcdc_update_layer_reg(void __iomem * address,u8 layid,LCDC_LayerConfigTypeDef *EachLayer);

@@ -347,19 +347,40 @@ static void ameba_drm_destroy_crtc(struct drm_device *drm_dev)
 static void ameba_drm_unbind(struct device *dev)
 {
 	struct drm_device *drm = dev_get_drvdata(dev);
+	struct ameba_drm_struct *ameba_struct = drm->dev_private;
+	struct ameba_drm_private *ameba_priv = ameba_struct->ameba_drm_priv;
+	struct drm_connector *connector;
+	struct drm_connector_list_iter iter;
 
 	DRM_INFO("Run DRM Unbind\n");
 
-	drm_dev_unregister(drm);
-	ameba_drm_destroy_crtc(drm);
-
-	drm_kms_helper_poll_fini(drm);
+	/* Step 1: First shutdown display pipeline */
 	drm_atomic_helper_shutdown(drm);
-	ameba_drm_private_cleanup(drm);
-	drm_mode_config_cleanup(drm);
 
+	/* Step 2: Unregister DRM device */
+	drm_dev_unregister(drm);
+
+	/* Step 3: Unregister connector */
+	drm_connector_list_iter_begin(drm, &iter);
+	drm_for_each_connector_iter(connector, &iter) {
+		if (connector->dev == drm) {
+			drm_connector_unregister(connector);
+		}
+	}
+	drm_connector_list_iter_end(&iter);
+
+	/* Step 4: Unbind submodules (DSI/DP controllers etc.) */
 	component_unbind_all(drm->dev, drm);
 
+	/* Step 5: Cleanup CRTC and private data */
+	ameba_drm_destroy_crtc(drm);
+	drm_kms_helper_poll_fini(drm);
+
+	/* Step 6: Config cleanup */
+	drm_mode_config_cleanup(drm);
+	ameba_drm_private_cleanup(drm);
+
+	/* Final step: Release references */
 	drm->dev_private = NULL;
 	dev_set_drvdata(dev, NULL);
 	drm_dev_put(drm);

@@ -577,10 +577,12 @@ err_encoder:
 
 static void ameba_dsi_unbind(struct device *dev, struct device *master, void *data)
 {
-	(void) dev;
+	struct ameba_hw_dsi         *dsi = dev_get_drvdata(dev);
 	(void) master;
 	(void) data;
 	DRM_INFO("Run MIPI DSI Unbind \n");
+
+	drm_connector_cleanup(&dsi->connector);
 }
 
 static const struct component_ops ameba_dsi_ops = {
@@ -724,6 +726,8 @@ static int ameba_dsi_remove(struct platform_device *pdev)
 		dsi->enable = false ;
 	}
 	iounmap(dsi->sysctrl_reg);
+
+	clk_disable_unprepare(dsi->hepri_clk);
 
 	mipi_dsi_host_unregister(&(dsi->dsi_host));
 	dsi->dsi_host.dev = NULL;
