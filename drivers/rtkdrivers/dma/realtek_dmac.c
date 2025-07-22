@@ -1041,12 +1041,31 @@ static enum dma_status rtk_dma_tx_status(struct dma_chan *chan,
 	struct rtk_dma_vchan *vchan = to_rtk_vchan(chan);
 	struct rtk_dma *rsdma = to_rtk_dma(vchan->vc.chan.device);
 	struct dma_slave_config *sconfig = &vchan->cfg;
+	int ptr_offset = 0, bytes_offset = 0;
 
 	if (state && sconfig) {
+		/*
+		 * Controller only returns the start address of the currently processed data segment
+		 * plus the actual transferred byte-offset within this segment.
+		 * For example:
+		 *   When handling the 5th entry among 32 LLI entries, it reports:
+		 *   Entry5_Start_Address + X bytes transferred in Entry5
+		 * Additional Note:
+		 *   In this case, the audio subsystem needs to subtract the residue value (remaining bytes)
+		 *   from the buffer's base address to determine the current position in the contiguous memory block being transferred.
+		 */
 		if (sconfig->direction == DMA_DEV_TO_MEM) {
-			state->residue = rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_DAR_L);
+			ptr_offset = rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_DAR_L);
+			bytes_offset = rsdma_readl(vchan->pchan->base, RTK_DMA_CHAN_CTL_U);
+			state->residue = ptr_offset + bytes_offset;
+			dev_dbg(rsdma->dma.dev, "ptr: %08x, bytes: %08x.", ptr_offset, bytes_offset);
+			dev_dbg(rsdma->dma.dev, "start: %08x, current: %08x.", vchan->hwlli_buffers[0].Darx, state->residue);
 		} else if (sconfig->direction == DMA_MEM_TO_DEV) {
-			state->residue = rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_SAR_L);
+			ptr_offset = rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_SAR_L);
+			bytes_offset = rsdma_readl(vchan->pchan->base, RTK_DMA_CHAN_CTL_U);
+			state->residue = ptr_offset + bytes_offset;
+			dev_dbg(rsdma->dma.dev, "ptr: %08x, bytes: %08x.", ptr_offset, bytes_offset);
+			dev_dbg(rsdma->dma.dev, "start: %08x, current: %08x.", vchan->hwlli_buffers[0].Sarx, state->residue);
 		} else {
 			dev_dbg(rsdma->dma.dev, "Tx status do not support residue in this direction.");
 			state->residue = 0;
