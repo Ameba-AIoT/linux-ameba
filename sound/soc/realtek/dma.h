@@ -9,7 +9,7 @@
 #define __SND_SOC_REALTEK_GDMA_H_
 
 #define MAX_IDMA_PERIOD (128 * 1024)
-#define MAX_IDMA_BUFFER (160 * 1024)
+#define MAX_IDMA_BUFFER (640 * 1024)
 #define DMA_BURST_AGGREGATION 16
 
 //dma fifo infos.
