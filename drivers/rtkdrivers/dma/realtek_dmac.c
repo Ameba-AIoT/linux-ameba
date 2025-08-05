@@ -1041,7 +1041,7 @@ static enum dma_status rtk_dma_tx_status(struct dma_chan *chan,
 	struct rtk_dma_vchan *vchan = to_rtk_vchan(chan);
 	struct rtk_dma *rsdma = to_rtk_dma(vchan->vc.chan.device);
 	struct dma_slave_config *sconfig = &vchan->cfg;
-	int ptr_offset = 0, bytes_offset = 0;
+	int ptr_offset = 0, bytes_offset = 0, scheduling_check = 0;
 
 	if (state && sconfig) {
 		/*
@@ -1057,15 +1057,27 @@ static enum dma_status rtk_dma_tx_status(struct dma_chan *chan,
 		if (sconfig->direction == DMA_DEV_TO_MEM) {
 			ptr_offset = rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_DAR_L);
 			bytes_offset = rsdma_readl(vchan->pchan->base, RTK_DMA_CHAN_CTL_U);
-			state->residue = ptr_offset + bytes_offset;
-			dev_dbg(rsdma->dma.dev, "ptr: %08x, bytes: %08x.", ptr_offset, bytes_offset);
-			dev_dbg(rsdma->dma.dev, "start: %08x, current: %08x.", vchan->hwlli_buffers[0].Darx, state->residue);
+			scheduling_check = rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_DAR_L);
+			if (ptr_offset == scheduling_check) {
+				state->residue = ptr_offset + bytes_offset;
+				dev_dbg(rsdma->dma.dev, "ptr: %08x, bytes: %08x.", ptr_offset, bytes_offset);
+				dev_dbg(rsdma->dma.dev, "start: %08x, current: %08x.", vchan->hwlli_buffers[0].Darx, state->residue);
+			} else {
+				state->residue = scheduling_check;
+				dev_dbg(rsdma->dma.dev, "start: %08x, current: %08x.", vchan->hwlli_buffers[0].Darx, state->residue);
+			}
 		} else if (sconfig->direction == DMA_MEM_TO_DEV) {
 			ptr_offset = rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_SAR_L);
 			bytes_offset = rsdma_readl(vchan->pchan->base, RTK_DMA_CHAN_CTL_U);
-			state->residue = ptr_offset + bytes_offset;
-			dev_dbg(rsdma->dma.dev, "ptr: %08x, bytes: %08x.", ptr_offset, bytes_offset);
-			dev_dbg(rsdma->dma.dev, "start: %08x, current: %08x.", vchan->hwlli_buffers[0].Sarx, state->residue);
+			scheduling_check = rsdma_readl(rsdma->base, RTK_DMA_CHAN_BASE(vchan->pchan->id) + RTK_DMA_CHAN_SAR_L);
+			if (ptr_offset == scheduling_check) {
+				state->residue = ptr_offset + bytes_offset;
+				dev_dbg(rsdma->dma.dev, "ptr: %08x, bytes: %08x.", ptr_offset, bytes_offset);
+				dev_dbg(rsdma->dma.dev, "start: %08x, current: %08x.", vchan->hwlli_buffers[0].Sarx, state->residue);
+			} else {
+				state->residue = scheduling_check;
+				dev_dbg(rsdma->dma.dev, "start: %08x, current: %08x.", vchan->hwlli_buffers[0].Sarx, state->residue);
+			}
 		} else {
 			dev_dbg(rsdma->dma.dev, "Tx status do not support residue in this direction.");
 			state->residue = 0;
