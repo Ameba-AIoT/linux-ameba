@@ -842,7 +842,8 @@ typedef struct {
 								((NUM) == 88200)  || \
 								((NUM) == 96000)  || \
 								((NUM) == 176400)  || \
-								((NUM) == 192000))
+								((NUM) == 192000)  || \
+								((NUM) == 384000))
 
 #define MCLK_DIV_4      0
 #define MCLK_DIV_2      1
