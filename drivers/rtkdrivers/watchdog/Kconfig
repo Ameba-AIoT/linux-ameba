@@ -1,0 +1,7 @@
+
+config WATCHDOG_RTK_AMEBA
+	tristate "Watchdog driver"
+	select WATCHDOG
+	select WATCHDOG_CORE
+	help
+	  Support for the watchdog on realtek ameba device.

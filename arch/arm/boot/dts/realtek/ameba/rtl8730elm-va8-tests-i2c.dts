@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for I2C test
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/dts-v1/;
+
+#include "rtl8730e.dtsi"
+#include "rtl8730e-spi-nand-256m.dtsi"
+
+/ {
+	memory {
+		device_type = "memory";
+		// DRAM base address should be 1MB-aligned.
+		reg = <0x60300000 0xFD00000>;  // 256MB -- exclude 3MB secure memory
+	};
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		// reserver 32M mem for drm graphics , from 0x61000000 to 0x63000000
+		mem_drm_reserved: drm_buffer@0x61000000 {
+			compatible = "shared-dma-pool";
+			no-map;
+			reg = <0x61000000 0x2000000>;
+			//linux,cma-default;
+		};
+	};
+};
+
+// Configure peripherals.
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pins>;
+	rtk,i2c-reg-slave-num = <0>; // I2C master
+	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	#address-cells = <1>; // For i2c bus address
+	#size-cells = <0>; // Only reg address is needed
+	rtk,i2c-reg-slave-num = <2>; // I2C slaves
+	status = "okay";
+
+	i2c-test1 {
+		compatible = "realtek,ameba-i2c-slave-test";
+		reg = <0x23>;
+		};
+	i2c-test2 {
+		compatible = "realtek,ameba-i2c-slave-test-append";
+		reg = <0x25>;
+	};
+};
+
+&i2c2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c2_pins>;
+	status = "okay";
+};

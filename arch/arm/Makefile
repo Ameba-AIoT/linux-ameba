@@ -226,6 +226,7 @@ machine-$(CONFIG_ARCH_VT8500)		+= vt8500
 machine-$(CONFIG_ARCH_ZYNQ)		+= zynq
 machine-$(CONFIG_PLAT_VERSATILE)	+= versatile
 machine-$(CONFIG_PLAT_SPEAR)		+= spear
+machine-$(CONFIG_ARCH_AMEBASMART)	+= amebasmart
 
 # legacy platforms provide their own mach/*.h headers globally,
 # these three are mutually exclusive

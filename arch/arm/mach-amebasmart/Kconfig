@@ -1,0 +1,37 @@
+#
+# Realtek Semiconductor Corp.
+#
+
+# TODO: deprecate the configs from config.top
+
+# SPDX-License-Identifier: GPL-2.0-only
+
+# Cortex-A7
+config SOC_CPU_ARMA7
+    bool
+
+config SOC_CPU_ARMA32
+    bool
+    default y
+
+menuconfig ARCH_AMEBASMART
+	bool "AmebaSmart ARM platform"
+	select CPU_V8
+	select ARM_GIC
+	select ARM_GIC_V3
+	select HAVE_ARM_ARCH_TIMER
+	select CPU_LITTLE_ENDIAN
+	select COMMON_CLK
+	select GENERIC_IRQ_MULTI_HANDLER
+	select CLKDEV_LOOKUP
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select HW_HAS_PCI
+	select HW_HAS_USB
+	select HAVE_ARM_SCU
+	select HAVE_SMP
+	select SMP
+	select VFP
+	select NEON
+	select USE_OF
+	select CPU_HAS_L2C

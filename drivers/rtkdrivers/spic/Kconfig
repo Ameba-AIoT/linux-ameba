@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# SPIC driver configuration
+#
+
+config SPIC_RTK_AMEBA_RXI312
+	bool "RXI312 SPI controller driver for NAND and NOR"
+	select SPI
+	select SPI_REALTEK_RXI312
+	default y
+	help
+	  This is the driver for the REALTEK RXI312 SPI controller for NAND and NOR.
+

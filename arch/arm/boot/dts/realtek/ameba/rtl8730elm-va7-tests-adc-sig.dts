@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for ADC test
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/dts-v1/;
+
+#include "rtl8730e.dtsi"
+#include "rtl8730e-spi-nand-128m.dtsi"
+
+/ {
+	memory {
+		device_type = "memory";
+		// DRAM base address should be 1MB-aligned.
+		reg = <0x60300000 0x7D00000>;  // 128MB -- exclude 3MB secure memory
+	};
+};
+
+&adc {
+	rtk,adc-mode = <1>;
+	rtk,adc-channels = <0>, <1>, <2>, <3>, <4>, <5>, <6>;
+	status = "okay";
+
+	comparator: comparator@0 {
+		wakeup-source;
+	};
+};

@@ -1,0 +1,10 @@
+config SPI_RTK_AMEBA
+	tristate "SPI general controller driver"
+	select HAS_IOMEM
+	select SPI
+	select SPI_SLAVE
+	help
+	  This is the driver for Realtek SPI Controller.
+	  If SPI in Userspace is needed, please select SPI_SPIDEV manually, and set rtk,spi-default-cs(dts) to <0>.
+	  If FBTFT-SPI is needed, please confirm SPI_SPIDEV is closed, and set rtk,spi-default-cs(dts) to <1>.
+	  If SPI Slave mode is needed, please select SPI_SLAVE mannally and set rtk,spi-slave-mode(dts) to <1>.

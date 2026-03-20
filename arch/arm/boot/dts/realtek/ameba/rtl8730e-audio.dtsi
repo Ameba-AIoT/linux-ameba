@@ -1,0 +1,157 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for audio
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+#include <dt-bindings/realtek/clock/realtek-ameba-clock.h>
+
+ / {
+	ocp {
+		audio_clock:audio_clock@0x42008840 {
+			compatible = "realtek,ameba-audio-clock";
+			reg = <0x42008840 0x000040>;
+			rtk,sport-clock = <&rcc>;
+		};
+
+		// Cannot be enabled simultaneously with timer9 node
+		captimer: captimer@0x4100A200 {
+			compatible = "realtek,ameba-captimer";
+			reg = <0x4100A200 0x200>,
+					<0x42008840 0x000040>;
+			interrupts = <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&rcc RTK_CKE_TIM9> ;
+			status = "disabled";
+		};
+
+		sport:sport@0x4100D000 {
+			compatible = "realtek,ameba-sport";
+			reg = <0x4100D000 0x000984>;
+			id = <0>;
+			clocks = <&rcc RTK_CKE_SPORT0>;
+			interrupts = <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		sport1:sport@0x4100E000 {
+			compatible = "realtek,ameba-sport";
+			reg = <0x4100E000 0x000984>;
+			id = <1>;
+			clocks = <&rcc RTK_CKE_SPORT1>;
+			interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		sport2:sport@0x4100F000 {
+			compatible = "realtek,ameba-sport";
+			reg = <0x4100F000 0x000984>;
+			id = <2>;
+			rtk,sport-multi-io = <0>;
+			rtk,sport-mode = <0>;
+			rtk,sport-mclk-multiplier = <0>;
+			rtk,sport-mclk-fixed-max = <0>;
+			clocks = <&rcc RTK_CKE_SPORT2>;
+			rtk,sport-clock = <&rcc>;
+			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		sport3:sport@0x41010000 {
+			compatible = "realtek,ameba-sport";
+			reg = <0x41010000 0x000984>;
+			id = <3>;
+			rtk,sport-multi-io = <0>;
+			rtk,sport-mode = <0>;
+			rtk,sport-mclk-multiplier = <0>;
+			rtk,sport-mclk-fixed-max = <0>;
+			clocks = <&rcc RTK_CKE_SPORT3>;
+			rtk,sport-clock = <&rcc>;
+			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		codec:codec@0 {
+			compatible = "realtek,ameba-codec";
+			reg = <0x4100B000 0x000908>,
+					<0x4100C100 0x000030>,
+					<0x4200820C 0x000004>,
+					<0x42008890 0x000004>;
+			clocks = <&rcc RTK_CKE_AC>;
+		};
+	};
+
+	/*pcm node for pcmC0D0p*/
+	audiodma0:audiodma@0 {
+		compatible = "realtek,ameba-audiodma";
+		id = <0>;
+		dmas = <&dma 0>,<&dma 1>;
+		dma-names = "tx-0","tx-1";
+	};
+
+	/*pcm node for pcmC0D1c*/
+	audiodma1:audiodma@1 {
+		compatible = "realtek,ameba-audiodma";
+		id = <1>;
+		dmas = <&dma 6>,<&dma 7>;
+		dma-names = "rx-0","rx-1";
+	};
+
+	/*pcm node for pcmC0D2c, pcmC0D2p*/
+	audiodma2:audiodma@2 {
+		compatible = "realtek,ameba-audiodma";
+		id = <2>;
+		dmas = <&dma 2>,<&dma 3>,<&dma 6>,<&dma 7>;
+		dma-names = "tx-0","tx-1","rx-0","rx-1";
+	};
+
+	/*pcm node for pcmC0D3c, pcmC0D3p*/
+	audiodma3:audiodma@3 {
+		compatible = "realtek,ameba-audiodma";
+		id = <3>;
+		dmas = <&dma 4>,<&dma 5>,<&dma 6>,<&dma 7>;
+		dma-names = "tx-0","tx-1","rx-0","rx-1";
+	};
+
+	sound {
+		compatible = "realtek,ameba-audio";
+		rtk,sports-controller = <&sport>;
+		rtk,audio-codec = <&codec>;
+	};
+};
+
+&audio_clock {
+	status = "okay";
+};
+
+&sport {
+	status = "okay";
+};
+
+&sport1 {
+	status = "okay";
+};
+
+&sport2 {
+	status = "okay";
+};
+
+&sport3 {
+	status = "okay";
+};
+
+&codec {
+	status = "okay";
+};
+
+&audiodma0 {
+	status = "okay";
+};
+
+&audiodma1 {
+	status = "okay";
+};
+
+&audiodma2 {
+	status = "okay";
+};
+
+&audiodma3 {
+	status = "okay";
+};

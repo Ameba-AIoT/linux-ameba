@@ -1,0 +1,7 @@
+config DMAC_RTK_AMEBA
+	tristate "DMAC driver"
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+	help
+		This enables the driver for the onchip RTK_DMAC for Ameba SoCs
+

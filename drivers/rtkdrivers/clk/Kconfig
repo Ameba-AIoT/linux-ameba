@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config CLK_RTK_AMEBA_RCC
+	bool "RCC driver"
+	default y

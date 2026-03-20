@@ -1,0 +1,6 @@
+config HW_RANDOM_RTK_AMEBA
+	tristate "HW Random driver"
+	select HW_RANDOM
+	help
+	  Enable this option to add support for Realtek hardware RNG driver embedded in Ameba SoCs.
+

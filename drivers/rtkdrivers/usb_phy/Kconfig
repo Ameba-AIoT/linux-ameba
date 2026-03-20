@@ -1,0 +1,5 @@
+config USB_RTK_AMEBA_USB20PHY
+	tristate "USB PHY driver"
+	select USB_PHY
+        help
+          Support Realtek USB20PHY for Ameba SoCs

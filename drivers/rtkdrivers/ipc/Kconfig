@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# Serial device configuration
+#
+
+config IPC_RTK_AMEBA
+	bool "IPC"
+	default n
+	help
+	  Driver for RTK IPC(Inter Process Communication)

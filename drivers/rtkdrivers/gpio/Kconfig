@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config GPIO_RTK_AMEBA
+	bool "GPIO driver"
+	select GPIOLIB
+	select OF_GPIO
+	select GPIOLIB_IRQCHIP
+	default y

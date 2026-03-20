@@ -1,0 +1,24 @@
+menuconfig I2C_RTK_AMEBA
+	tristate "I2C controller driver"
+	select I2C
+	select HAS_IOMEM
+	select I2C_CHARDEV
+	select MFD_RTK_AMEBA_TIMERS
+
+	help
+	  Enable this option to add support for Realtek I2C controller
+	  embedded in Ameba SoCs.
+
+	  This driver can also be built as module. If so, the module
+	  will be called i2c-realtek. If i2c slave mode is needed, please
+	  open I2C_SLAVE_RTK_AMEBA.
+
+if I2C_RTK_AMEBA
+config I2C_SLAVE_RTK_AMEBA
+	tristate "I2C slave driver"
+	select I2C_SLAVE
+	help
+	  Enable this option to add support for Realtek I2C slave controller
+	  embedded in Ameba SoCs.
+endif
+

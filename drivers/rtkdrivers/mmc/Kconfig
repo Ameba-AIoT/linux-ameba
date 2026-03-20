@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MMC_RTK_AMEBA_SDIOH
+	tristate "SDIO host driver"
+	select BLOCK
+	select MMC
+	select MMC_BLOCK
+	select BLK_DEV
+	select VFAT_FS
+	select NLS
+	select NLS_CODEPAGE_437
+	select NLS_ISO8859_1
+	help
+	  This selects the realtek SDIO host controller.
+
+

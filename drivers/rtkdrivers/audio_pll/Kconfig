@@ -1,0 +1,5 @@
+config AUDIO_PLL_RTK_AMEBA
+	tristate "audio pll driver"
+	help
+		This enables the driver for the onchip audio pll for Ameba SoCs
+
