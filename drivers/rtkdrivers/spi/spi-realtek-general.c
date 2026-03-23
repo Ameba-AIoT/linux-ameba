@@ -1473,24 +1473,21 @@ void rtk_spi_set_cs(
 		return;
 	}
 
-	dev_dbg(rtk_spi->dev, "Set CS %s\n", !enable ? "enable" : "disable");
-	if (spi->chip_select) {
-		dev_warn(rtk_spi->dev, "Set CS id = %d\n", spi->chip_select);
-	}
+	u8 cs_idx = spi_get_chipselect(spi, 0);
 
-	dev_info(rtk_spi->dev, "chip_select: %d", spi->chip_select);
+	dev_dbg(rtk_spi->dev, "Set CS %s for idx %d\n", enable ? "enable" : "disable", cs_idx);
 
 	struct rtk_spi_device *dev;
 
 	for (int32_t i = 0; i < rtk_spi->num_devices; i++) {
-		if (rtk_spi->cs_devices[i].chip_select == spi->chip_select) {
+		if (rtk_spi->cs_devices[i].chip_select == cs_idx) {
 			dev = &rtk_spi->cs_devices[i];
 			break;
 		}
 	}
 
 	if (!dev || !dev->cs_gpiod) {
-		dev_dbg(&spi->dev, "No CS GPIO for chip_select=%d\n", spi->chip_select);
+		dev_err(&spi->dev, "No CS GPIO for chip_select=%d\n", cs_idx);
 		return;
 	}
 

@@ -30,7 +30,6 @@
 #define AMEBA_PWM_CHAN_NUM		6
 
 struct rtk_pwm {
-	struct pwm_chip chip;
 	struct clk *pwm_clk;
 	u32 clk;
 	void __iomem *base;
@@ -40,7 +39,7 @@ struct rtk_pwm {
 
 static struct rtk_pwm *to_rtk_pwm_dev(struct pwm_chip *chip)
 {
-	return container_of(chip, struct rtk_pwm, chip);
+	return pwmchip_get_drvdata(chip);
 }
 
 static int active_channels(struct pwm_chip *chip)
@@ -258,7 +257,6 @@ exit:
 }
 
 static const struct pwm_ops rtk_pwm_ops = {
-	//.owner = THIS_MODULE,
 	.apply = rtk_pwm_apply,
 	// .capture = rtk_pwm_capture, //pwm timer can only capture period
 	//and capture timer can only capture pulse or width. So
@@ -267,32 +265,35 @@ static const struct pwm_ops rtk_pwm_ops = {
 
 static int rtk_pwm_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
+	struct pwm_chip *chip;
 	struct rtk_pwm *pwm;
 	struct rtk_tim *tim = dev_get_drvdata(pdev->dev.parent);
 	int ret;
 
-	pwm = devm_kzalloc(&pdev->dev, sizeof(struct rtk_pwm), GFP_KERNEL);
-	if (!pwm) {
-		return -ENOMEM;
-	}
+	chip = devm_pwmchip_alloc(dev, AMEBA_PWM_CHAN_NUM, sizeof(*pwm));
+	if (IS_ERR(chip))
+		return PTR_ERR(chip);
+	pwm = to_rtk_pwm_dev(chip);
 
 	mutex_init(&pwm->lock);
 
 	pwm->base = tim->base;
 	pwm->pwm_clk = tim->tim_clk;
 	pwm->clk = tim->clk_rate;      //IP clk is XTAL40M
-	pwm->chip.dev = pdev->dev;
-	pwm->chip.ops = &rtk_pwm_ops;
-	pwm->chip.npwm = AMEBA_PWM_CHAN_NUM;
-	//pwm->chip.base = -1;
 
-	ret = pwmchip_add(&pwm->chip);
+	chip->ops = &rtk_pwm_ops;
+
+	platform_set_drvdata(pdev, pwm);
+
+	ret = pwmchip_add(chip);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to add PWM chip: %d\n", ret);
 		return ret;
 	}
 
-	platform_set_drvdata(pdev, pwm);
+	dev_info(&pdev->dev, "PWM Initialized successfully\n");
+
 	return 0;
 }
 
