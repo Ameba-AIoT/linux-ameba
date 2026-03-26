@@ -14,6 +14,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
 #include <linux/usb/phy.h>
+#include <linux/kconfig.h>
 #include "hw.h"
 
 /*
@@ -1217,6 +1218,12 @@ struct dwc2_hsotg {
 	struct dwc2_dma_desc *ctrl_in_desc;
 	dma_addr_t ctrl_out_desc_dma;
 	struct dwc2_dma_desc *ctrl_out_desc;
+
+#if defined(CONFIG_USB_RTK_AMEBA_USB20PHY) || defined(CONFIG_USB_RTK_AMEBA_USB20PHY_MODULE)
+	u8 start_predict;
+	u8 nextep_seq[MAX_EPS_CHANNELS];
+	u8 first_in_nextep_seq;
+#endif
 
 	struct usb_gadget gadget;
 	unsigned int enabled:1;
