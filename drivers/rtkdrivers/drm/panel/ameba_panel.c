@@ -29,7 +29,7 @@
 extern struct ameba_panel_desc panel_st7701s_desc;
 extern struct ameba_panel_desc panel_r63353_desc;
 extern struct ameba_panel_desc panel_jd9165ba_desc;
-extern struct ameba_panel_desc panel_gh7220_desc;
+extern struct ameba_panel_desc panel_gh7002_desc;
 
 static const struct of_device_id ameba_panel_match[] = {
 	{
@@ -42,8 +42,8 @@ static const struct of_device_id ameba_panel_match[] = {
 		.compatible = "realtek,jd9165ba",
 		.data = &panel_jd9165ba_desc,
 	}, {
-		.compatible = "realtek,gh7220",
-		.data = &panel_gh7220_desc,
+		.compatible = "realtek,gh7002",
+		.data = &panel_gh7002_desc,
 	}, {
 		/* NULL */
 	}

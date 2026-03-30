@@ -2,7 +2,7 @@
 /*
 * Realtek Panel support
 *
-* MIPI-DSI gh7220 panel driver. This is a 1024 * 600
+* MIPI-DSI gh7002-01 panel driver. This is a 1024 * 600
 *
 * Copyright (C) 2023, Realtek Corporation. All rights reserved.
 */
@@ -23,7 +23,7 @@
 #include "ameba_panel_priv.h"
 
 /*
- * Driver IC: gh7220
+ * Driver IC: gh7002-01
  * Screen: hj7001-02
 
  RGB Output Timing Diagram
@@ -43,7 +43,7 @@
 
  Example:
 	&rtkpanel {
-		compatible = "realtek,gh7220";
+		compatible = "realtek,gh7002";
 		pinctrl-names="default";
 		pinctrl-0 = <&drm_disable_swd_pins>;
 		mipi-gpios = <&gpioa 14 0>;
@@ -67,11 +67,11 @@
 	};
 */
 
-struct gh7220 {
+struct gh7002 {
 	int gpio;
 };
 
-static LCM_setting_table_t gh7220_initialization[] = {/* DCS Write Long */
+static LCM_setting_table_t gh7002_initialization[] = {/* DCS Write Long */
 	{MIPI_DSI_DCS_SHORT_WRITE_PARAM, 2, {0xee, 0x01}}, // 无
 	{MIPI_DSI_DCS_SHORT_WRITE_PARAM, 2, {0xea, 0x07}},
 	{MIPI_DSI_DCS_SHORT_WRITE_PARAM, 2, {0xeb, 0x12}},
@@ -302,10 +302,10 @@ static int dsi_gpio_reset(int iod)
 	return 0;
 }
 
-static int gh7220_enable(struct drm_panel *panel)
+static int gh7002_enable(struct drm_panel *panel)
 {
 	struct ameba_panel_desc  *desc = panel_to_desc(panel);
-	struct gh7220            *handle = desc->priv;
+	struct gh7002            *handle = desc->priv;
 	int                      ret;
 
 	ret = dsi_gpio_reset(handle->gpio);
@@ -316,13 +316,13 @@ static int gh7220_enable(struct drm_panel *panel)
 	return 0;
 }
 
-static int gh7220_disable(struct drm_panel *panel)
+static int gh7002_disable(struct drm_panel *panel)
 {
 	(void)panel;
 	return 0;
 }
 
-static int gh7220_get_modes(struct drm_panel *panel, struct drm_connector *connector)
+static int gh7002_get_modes(struct drm_panel *panel, struct drm_connector *connector)
 {
 	struct drm_display_mode	*mode = drm_mode_create(connector->dev);
 	struct device_node		*np = panel->dev->of_node;
@@ -343,19 +343,19 @@ static int gh7220_get_modes(struct drm_panel *panel, struct drm_connector *conne
 	return 1; /* Number of modes */
 }
 
-static int gh7220_probe(struct device *dev,struct ameba_panel_desc *priv_data)
+static int gh7002_probe(struct device *dev,struct ameba_panel_desc *priv_data)
 {
 	struct device_node              *np = dev->of_node;
-	struct gh7220                   *gh7220_data;
+	struct gh7002                   *gh7002_data;
 
-	gh7220_data = devm_kzalloc(dev, sizeof(struct gh7220), GFP_KERNEL);
-	if (!gh7220_data)
+	gh7002_data = devm_kzalloc(dev, sizeof(struct gh7002), GFP_KERNEL);
+	if (!gh7002_data)
 		return -ENOMEM;
 
-	priv_data->priv = gh7220_data ;
+	priv_data->priv = gh7002_data ;
 
-	gh7220_data->gpio = of_get_named_gpio(np, "mipi-gpios", 0);
-	if (!gpio_is_valid(gh7220_data->gpio)) {
+	gh7002_data->gpio = of_get_named_gpio(np, "mipi-gpios", 0);
+	if (!gpio_is_valid(gh7002_data->gpio)) {
 		DRM_ERROR("Panel fail to get mipi-gpios\n");
 		return -ENODEV;
 	}
@@ -363,28 +363,28 @@ static int gh7220_probe(struct device *dev,struct ameba_panel_desc *priv_data)
 	return 0;
 }
 
-static int gh7220_remove(struct device *dev,struct ameba_panel_desc *priv_data)
+static int gh7002_remove(struct device *dev,struct ameba_panel_desc *priv_data)
 {
-	struct gh7220      *handle = priv_data->priv;
+	struct gh7002      *handle = priv_data->priv;
 	AMEBA_DRM_DEBUG();
 
 	gpio_free(handle->gpio);
 	return 0;
 }
 
-static struct drm_panel_funcs gh7220_panel_funcs = {
-	.disable   = gh7220_disable,
-	.enable    = gh7220_enable,
-	.get_modes = gh7220_get_modes,
+static struct drm_panel_funcs gh7002_panel_funcs = {
+	.disable   = gh7002_disable,
+	.enable    = gh7002_enable,
+	.get_modes = gh7002_get_modes,
 };
 
-struct ameba_panel_desc panel_gh7220_desc = {
+struct ameba_panel_desc panel_gh7002_desc = {
 	.dev             = NULL,
 	.priv            = NULL,
-	.init_table      = gh7220_initialization,
-	.rtk_panel_funcs = &gh7220_panel_funcs,
+	.init_table      = gh7002_initialization,
+	.rtk_panel_funcs = &gh7002_panel_funcs,
 
-	.init   = gh7220_probe,
-	.deinit = gh7220_remove,
+	.init   = gh7002_probe,
+	.deinit = gh7002_remove,
 };
-EXPORT_SYMBOL(panel_gh7220_desc);
+EXPORT_SYMBOL(panel_gh7002_desc);
