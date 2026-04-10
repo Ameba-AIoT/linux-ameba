@@ -35,9 +35,29 @@
 #include "btbcm.h"
 #include "hci_uart.h"
 
+#ifdef BTCOEX
+#include "rtk_coex.h"
+#endif
+
 #define VERSION "2.3"
 
 static const struct hci_uart_proto *hup[HCI_UART_MAX_PROTO];
+
+#define AMEBA_PHY_ADDR          0x42008250
+#define AMEBA_ACTIVE_PHY_ADDR   0x42008254
+#define AMEBA_OFF_PHY_ADDR      0x42008208
+
+#define BIT0					0x0001
+#define BIT1					0x0002
+#define BIT2					0x0004
+#define BIT3					0x0008
+#define BIT4					0x0010
+#define BIT13	                0x2000
+#define BIT14	                0x4000
+
+void __iomem *ameba_virtu_addr;
+void __iomem *ameba_active_virtu_addr;
+void __iomem *ameba_off_addr;
 
 int hci_uart_register_proto(const struct hci_uart_proto *p)
 {
@@ -144,6 +164,28 @@ no_schedule:
 }
 EXPORT_SYMBOL_GPL(hci_uart_tx_wakeup);
 
+static uint32_t cal_bit_shift(uint32_t Mask)
+{
+	uint32_t i;
+	for (i = 0; i < 31; i++) {
+		if (((Mask >> i) & 0x1) == 1) {
+			break;
+		}
+	}
+	return (i);
+}
+
+static void set_reg_value(void __iomem *reg_address, uint32_t Mask, uint32_t val)
+{
+	uint32_t shift = 0;
+	uint32_t data = 0;
+	data = readl(reg_address);
+	shift = cal_bit_shift(Mask);
+	data = ((data & (~Mask)) | (val << shift));
+	writel(data, reg_address);
+	data = readl(reg_address);
+}
+
 static void hci_uart_write_work(struct work_struct *work)
 {
 	struct hci_uart *hu = container_of(work, struct hci_uart, write_work);
@@ -154,6 +196,22 @@ static void hci_uart_write_work(struct work_struct *work)
 	/* REVISIT: should we cope with bad skbs or ->write() returning
 	 * and error value ?
 	 */
+
+	if (1) {
+		/* acquire host wake up bt */
+		uint32_t data;
+
+		set_reg_value(ameba_virtu_addr, BIT13 | BIT14, 3); // enable HOST_WAKE_BT No GPIO | HOST_WAKE_BT
+		while (1) {
+			if ((readl(ameba_active_virtu_addr) & (BIT4 | BIT3 | BIT2 | BIT1 | BIT0)) == 4) { // 0x42008254[4:0]
+				/* bt active */
+				break;
+			} else if ((readl(ameba_off_addr) & BIT13) == 0) { // 0x42008208[13]
+				/* bt power off */
+				break;
+			}
+		}
+	}
 
 restart:
 	clear_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
@@ -178,6 +236,11 @@ restart:
 	clear_bit(HCI_UART_SENDING, &hu->tx_state);
 	if (test_bit(HCI_UART_TX_WAKEUP, &hu->tx_state))
 		goto restart;
+
+	if (1) {
+		/* release host wake up bt */
+		set_reg_value(ameba_virtu_addr, BIT13 | BIT14, 0); // disable HOST_WAKE_BT No GPIO | HOST_WAKE_BT
+	}
 
 	wake_up_bit(&hu->tx_state, HCI_UART_SENDING);
 }
@@ -257,6 +320,10 @@ static int hci_uart_open(struct hci_dev *hdev)
 	/* Undo clearing this from hci_uart_close() */
 	hdev->flush = hci_uart_flush;
 
+#ifdef BTCOEX
+	rtk_btcoex_open(hdev);
+#endif
+
 	return 0;
 }
 
@@ -267,6 +334,9 @@ static int hci_uart_close(struct hci_dev *hdev)
 
 	hci_uart_flush(hdev);
 	hdev->flush = NULL;
+#ifdef BTCOEX
+	rtk_btcoex_close();
+#endif
 	return 0;
 }
 
@@ -277,6 +347,15 @@ static int hci_uart_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 
 	BT_DBG("%s: type %d len %d", hdev->name, hci_skb_pkt_type(skb),
 	       skb->len);
+
+#ifdef BTCOEX
+	if (hci_skb_pkt_type(skb) == HCI_COMMAND_PKT) {
+		rtk_btcoex_parse_cmd(skb->data, skb->len);
+	}
+	if (hci_skb_pkt_type(skb) == HCI_ACLDATA_PKT) {
+		rtk_btcoex_parse_l2cap_data_tx(skb->data, skb->len);
+	}
+#endif
 
 	percpu_down_read(&hu->proto_lock);
 
@@ -700,6 +779,10 @@ static int hci_uart_register_dev(struct hci_uart *hu)
 
 	set_bit(HCI_UART_REGISTERED, &hu->flags);
 
+#ifdef BTCOEX
+	rtk_btcoex_probe(hdev);
+#endif
+
 	return 0;
 }
 
@@ -885,6 +968,15 @@ static int __init hci_uart_init(void)
 #ifdef CONFIG_BT_HCIUART_AML
 	aml_init();
 #endif
+
+#ifdef BTCOEX
+	rtk_btcoex_init();
+#endif
+
+	ameba_virtu_addr = ioremap(AMEBA_PHY_ADDR, 32);
+	ameba_active_virtu_addr = ioremap(AMEBA_ACTIVE_PHY_ADDR, 32);
+	ameba_off_addr = ioremap(AMEBA_OFF_PHY_ADDR, 32);
+
 	return 0;
 }
 
@@ -924,6 +1016,14 @@ static void __exit hci_uart_exit(void)
 	aml_deinit();
 #endif
 	tty_unregister_ldisc(&hci_uart_ldisc);
+
+#ifdef BTCOEX
+	rtk_btcoex_exit();
+#endif
+
+	iounmap(ameba_virtu_addr);
+	iounmap(ameba_active_virtu_addr);
+	iounmap(ameba_off_addr);
 }
 
 module_init(hci_uart_init);

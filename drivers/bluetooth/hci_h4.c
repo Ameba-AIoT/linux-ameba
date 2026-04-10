@@ -32,6 +32,9 @@
 
 #include "hci_uart.h"
 
+#ifdef BTCOEX
+#include "rtk_coex.h"
+#endif
 struct h4_struct {
 	struct sk_buff *rx_skb;
 	struct sk_buff_head txq;
@@ -254,7 +257,16 @@ struct sk_buff *h4_recv_buf(struct hci_uart *hu, struct sk_buff *skb,
 			if (!dlen) {
 				hu->padding = (skb->len + 1) % alignment;
 				hu->padding = (alignment - hu->padding) % alignment;
+#ifdef BTCOEX
+			if (hci_skb_pkt_type(skb) == HCI_EVENT_PKT) {
+				rtk_btcoex_parse_event(skb->data, skb->len);
+			}
 
+			if (hci_skb_pkt_type(skb) == HCI_ACLDATA_PKT)
+				rtk_btcoex_parse_l2cap_data_rx(
+					skb->data,
+					skb->len);
+#endif
 				/* No more data, complete frame */
 				(&pkts[i])->recv(hdev, skb);
 				skb = NULL;
@@ -262,7 +274,16 @@ struct sk_buff *h4_recv_buf(struct hci_uart *hu, struct sk_buff *skb,
 		} else {
 			hu->padding = (skb->len + 1) % alignment;
 			hu->padding = (alignment - hu->padding) % alignment;
+#ifdef BTCOEX
+			if (hci_skb_pkt_type(skb) == HCI_EVENT_PKT) {
+				rtk_btcoex_parse_event(skb->data, skb->len);
+			}
 
+			if (hci_skb_pkt_type(skb) == HCI_ACLDATA_PKT)
+				rtk_btcoex_parse_l2cap_data_rx(
+					skb->data,
+					skb->len);
+#endif
 			/* Complete frame */
 			(&pkts[i])->recv(hdev, skb);
 			skb = NULL;
