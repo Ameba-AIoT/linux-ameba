@@ -192,8 +192,6 @@ static void rtk_spi_struct_init(
 
 	rtk_spi->spi_manage.dma_params.rx_chan = NULL;
 	rtk_spi->spi_manage.dma_params.tx_chan = NULL;
-	rtk_spi->spi_manage.dma_params.rx_config = NULL;
-	rtk_spi->spi_manage.dma_params.tx_config = NULL;
 	init_completion(&rtk_spi->spi_manage.dma_params.dma_rx_completion);
 	init_completion(&rtk_spi->spi_manage.dma_params.dma_tx_completion);
 	init_completion(&rtk_spi->spi_manage.txrx_completion);
@@ -957,11 +955,6 @@ static int rtk_spi_gdma_prepare(struct rtk_spi_controller *rtk_spi)
 
 static void rtk_spi_gdma_deinit(struct rtk_spi_controller *rtk_spi)
 {
-
-	if (rtk_spi->spi_manage.dma_params.tx_config) {
-		kfree(rtk_spi->spi_manage.dma_params.tx_config);
-		rtk_spi->spi_manage.dma_params.tx_config = NULL;
-	}
 	if (rtk_spi->spi_manage.dma_params.tx_dma_addr) {
 		dma_unmap_single(rtk_spi->dev,
 						 rtk_spi->spi_manage.dma_params.tx_dma_addr,
@@ -975,10 +968,7 @@ static void rtk_spi_gdma_deinit(struct rtk_spi_controller *rtk_spi)
 		rtk_spi->spi_manage.dma_params.tx_gdma_status = RTK_SPI_GDMA_UNPREPARED;
 	}
 	complete(&rtk_spi->spi_manage.dma_params.dma_tx_completion);
-	if (rtk_spi->spi_manage.dma_params.rx_config) {
-		kfree(rtk_spi->spi_manage.dma_params.rx_config);
-		rtk_spi->spi_manage.dma_params.rx_config = NULL;
-	}
+
 	if (rtk_spi->spi_manage.dma_params.rx_dma_addr) {
 		dma_unmap_single(rtk_spi->dev,
 						 rtk_spi->spi_manage.dma_params.rx_dma_addr,
@@ -1037,6 +1027,8 @@ int rtk_spi_do_dma_transfer(
 	struct dma_peripheral_config dma_peri_rx;
 	struct dma_peripheral_config dma_peri_tx;
 	unsigned long transfer_timeout, timeout;
+	struct dma_slave_config rx_config;
+	struct dma_slave_config tx_config;
 	int ret = -EIO;
 
 	if (transfer->len > MAX_DMA_LENGTH) {
@@ -1065,22 +1057,17 @@ int rtk_spi_do_dma_transfer(
 		dev_err(rtk_spi->dev, "Last DMA is ongoing for SPI%d, please check\n", rtk_spi->spi_manage.spi_index);
 		goto cannot_dma;
 	}
-	if (!dma_params->rx_config) {
-		dma_params->rx_config = kmalloc(sizeof(*dma_params->rx_config), GFP_KERNEL);
-	}
-	if (!dma_params->tx_config) {
-		dma_params->tx_config = kmalloc(sizeof(*dma_params->tx_config), GFP_KERNEL);
-	}
+
 	dma_params->rx_gdma_status = RTK_SPI_GDMA_ONGOING;
-	dma_params->rx_config->device_fc = 1;
+	rx_config.device_fc = 1;
 	dma_params->rx_dma_length = transfer->len;
-	dma_params->rx_config->dst_port_window_size = 0;
-	dma_params->rx_config->src_port_window_size = 0;
+	rx_config.dst_port_window_size = 0;
+	rx_config.src_port_window_size = 0;
 	dma_params->tx_gdma_status = RTK_SPI_GDMA_ONGOING;
-	dma_params->tx_config->device_fc = 1;
+	tx_config.device_fc = 1;
 	dma_params->tx_dma_length = transfer->len;
-	dma_params->tx_config->dst_port_window_size = 0;
-	dma_params->tx_config->src_port_window_size = 0;
+	tx_config.dst_port_window_size = 0;
+	tx_config.src_port_window_size = 0;
 
 	transfer->rx_dma = dma_map_single(rtk_spi->dev, transfer->rx_buf, transfer->len, DMA_DEV_TO_MEM);
 	if (!transfer->rx_dma) {
@@ -1112,53 +1099,53 @@ int rtk_spi_do_dma_transfer(
 		rtk_spi_reg_update(rtk_spi->base, SPI_CTRLR0, SPI_MASK_TMOD, SPI_TMOD(0));
 	}
 
-	dma_params->rx_config->src_addr = rtk_spi->spi_manage.dma_params.spi_phy_addr + SPI_DATA_FIFO_ENRTY;
-	dma_params->rx_config->direction = DMA_DEV_TO_MEM;
-	dma_params->rx_config->dst_addr = transfer->rx_dma;
-	dma_params->rx_config->dst_port_window_size = 0;
-	dma_params->rx_config->dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	dma_params->rx_config->src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
-	dma_params->rx_config->dst_maxburst = 1;
-	dma_params->rx_config->src_maxburst = 4;
+	rx_config.src_addr = rtk_spi->spi_manage.dma_params.spi_phy_addr + SPI_DATA_FIFO_ENRTY;
+	rx_config.direction = DMA_DEV_TO_MEM;
+	rx_config.dst_addr = transfer->rx_dma;
+	rx_config.dst_port_window_size = 0;
+	rx_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+	rx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+	rx_config.dst_maxburst = 1;
+	rx_config.src_maxburst = 4;
 
 	if (rtk_spi->spi_manage.spi_index == 0) {
 		dma_peri_rx.slave_id = GDMA_HANDSHAKE_INTERFACE_SPI0_RX;
 	} else {
 		dma_peri_rx.slave_id = GDMA_HANDSHAKE_INTERFACE_SPI1_RX;
 	}
-	dma_params->rx_config->peripheral_config = &dma_peri_rx;
-	dma_params->rx_config->peripheral_size = sizeof(struct dma_peripheral_config);
+	rx_config.peripheral_config = &dma_peri_rx;
+	rx_config.peripheral_size = sizeof(struct dma_peripheral_config);
 
-	dma_params->tx_config->src_addr = transfer->tx_dma;
-	dma_params->tx_config->direction = DMA_MEM_TO_DEV;
-	dma_params->tx_config->dst_addr = dma_params->spi_phy_addr + SPI_DATA_FIFO_ENRTY;
-	dma_params->tx_config->dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
-	dma_params->tx_config->src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	dma_params->tx_config->dst_maxburst = 4;
-	dma_params->tx_config->src_maxburst = 1;
+	tx_config.src_addr = transfer->tx_dma;
+	tx_config.direction = DMA_MEM_TO_DEV;
+	tx_config.dst_addr = dma_params->spi_phy_addr + SPI_DATA_FIFO_ENRTY;
+	tx_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+	tx_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+	tx_config.dst_maxburst = 4;
+	tx_config.src_maxburst = 1;
 
 	if (rtk_spi->spi_manage.spi_index == 0) {
 		dma_peri_tx.slave_id = GDMA_HANDSHAKE_INTERFACE_SPI0_TX;
 	} else {
 		dma_peri_tx.slave_id = GDMA_HANDSHAKE_INTERFACE_SPI1_TX;
 	}
-	dma_params->tx_config->peripheral_config = &dma_peri_tx;
-	dma_params->tx_config->peripheral_size = sizeof(struct dma_peripheral_config);
+	tx_config.peripheral_config = &dma_peri_tx;
+	tx_config.peripheral_size = sizeof(struct dma_peripheral_config);
 
-	ret = dmaengine_slave_config(dma_params->rx_chan, dma_params->rx_config);
+	ret = dmaengine_slave_config(dma_params->rx_chan, &rx_config);
 	if (ret < 0) {
 		dev_err(rtk_spi->dev, "DMA engine slave config for RX fail\n");
 		goto cannot_dma;
 	}
-	ret = dmaengine_slave_config(dma_params->tx_chan, dma_params->tx_config);
+	ret = dmaengine_slave_config(dma_params->tx_chan, &tx_config);
 	if (ret < 0) {
 		dev_err(rtk_spi->dev, "DMA engine slave config for TX fail\n");
 		goto cannot_dma;
 	}
 	dma_params->rxdesc = dmaengine_prep_dma_cyclic(dma_params->rx_chan,
-						 dma_params->rx_config->dst_addr,
+						 rx_config.dst_addr,
 						 dma_params->rx_dma_length, transfer->len,
-						 dma_params->rx_config->direction,
+						 rx_config.direction,
 						 DMA_PREP_INTERRUPT);
 
 	dma_params->rxdesc->callback = rtk_spi_dma_rx_done_callback;
@@ -1170,9 +1157,9 @@ int rtk_spi_do_dma_transfer(
 	dma_async_issue_pending(dma_params->rx_chan);
 
 	dma_params->txdesc = dmaengine_prep_dma_cyclic(dma_params->tx_chan,
-						 dma_params->tx_config->src_addr,
+						 tx_config.src_addr,
 						 dma_params->tx_dma_length, transfer->len,
-						 dma_params->tx_config->direction,
+						 tx_config.direction,
 						 DMA_PREP_INTERRUPT);
 
 	dma_params->txdesc->callback = rtk_spi_dma_tx_done_callback;

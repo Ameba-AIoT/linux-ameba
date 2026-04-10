@@ -463,8 +463,6 @@ struct spi_trans_tx_buf {
 };
 
 struct rtk_spi_gdma_parameters {
-	struct dma_slave_config		*rx_config;
-	struct dma_slave_config		*tx_config;
 	struct dma_chan			*rx_chan;
 	struct dma_chan			*tx_chan;
 	struct dma_async_tx_descriptor	*rxdesc;
