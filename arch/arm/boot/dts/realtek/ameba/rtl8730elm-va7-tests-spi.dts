@@ -28,6 +28,8 @@
 	spidev@0 {
 		compatible = "realtek,ameba-spidev";
 		reg = <0>;
+		//only master mode set SPI_CS to GPIO, so spi0_pins only set SPI0_CLK, SPI0_MOSI and SPI0_MISO.
+		rtk,spi-cs-gpios = <&gpiob 17 0>;
 		spi-max-frequency = <100000000>;
 		status = "okay";
 	};
