@@ -732,12 +732,6 @@ typedef enum _I2C_COMMAND_TYPE_ {
 	I2C_READ_CMD			= 0x1,
 } I2C_COMMAND_TYPE, *PI2C_COMMAND_TYPE;
 
-// I2C STOP BIT
-typedef enum _I2C_STOP_TYPE_ {
-	I2C_STOP_DIS			= 0x0,
-	I2C_STOP_EN			= 0x1,
-} I2C_STOP_TYPE, *PI2C_STOP_TYPE;
-
 // I2C error type
 typedef enum _I2C_ERR_TYPE_ {
 	I2C_ERR_RX_UNDER		= 0x01,           //I2C RX FIFO Underflow
@@ -883,9 +877,8 @@ struct rtk_i2c_hw_params {
   */
 
 struct i2c_trans_buf {
-	u16			data_len;		//I2C Transmfer Length
+	int			data_len;		//I2C Transmfer Length
 	u16			target_addr;		//I2C Target Address. It's only valid in Master Mode.
-	u32			reg_addr;		//I2C Register Address. It's only valid in Master Mode.
 	u8			*p_data_buf;		//I2C Transfer Buffer Pointer
 };
 
@@ -901,6 +894,9 @@ struct i2c_management_adapter {
 	u8			operation_type;		// I2C operation type selection
 	volatile u8		dev_status;		// I2C device status
 	u32			i2c_extend;		// I2C extended options: _I2C_EXD_SUPPORT_
+	struct i2c_msg		*msgs;
+	int			msg_count;
+	int			current_msg_id;
 };
 
 struct rtk_i2c_slave {
@@ -925,7 +921,7 @@ struct rtk_i2c_dev {
 
 	int				nr_slaves;
 	struct rtk_i2c_slave_dev	*slave_dev;
-	struct completion	xfer_completion;
+	struct completion		xfer_completion;
 };
 
 #ifndef ENABLE

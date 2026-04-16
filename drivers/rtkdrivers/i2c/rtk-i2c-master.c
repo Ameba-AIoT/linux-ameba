@@ -8,6 +8,65 @@
 #include "i2c-realtek.h"
 #include <linux/ameba/rtk-timer.h>
 
+#define I2C_MSG_IS_READ(msg)   ((msg)->flags & I2C_M_RD)
+#define I2C_MSG_IS_WRITE(msg)  (!((msg)->flags & I2C_M_RD))
+
+static hal_status rtk_i2c_receive_int_master(struct rtk_i2c_dev *i2c_dev);
+static hal_status rtk_i2c_receive_poll_master(struct rtk_i2c_dev *i2c_dev);
+static hal_status rtk_i2c_send_poll_master(struct rtk_i2c_dev *i2c_dev);
+
+static int rtk_i2c_can_send_tx_cmd(struct rtk_i2c_hw_params *i2c_param, u8 block)
+{
+	int retry = 0;
+
+	while (retry < SOWFTWARE_MAX_RETRYTIMES) {
+		if (!rtk_i2c_check_flag_state(i2c_param, I2C_BIT_MST_ACTIVITY) &&
+			  rtk_i2c_check_flag_state(i2c_param, BIT_TFNF)) {
+			return 1;
+		} else if (!block) {
+			return 0;
+		}
+
+		if (rtk_i2c_get_raw_interrupt(i2c_param) & I2C_BIT_TX_ABRT) {
+			dev_err(i2c_param->i2c_dev->dev,
+			       "TX abort detected (retry=%d)\n", retry);
+			rtk_i2c_clear_all_interrupts(i2c_param);
+			return -1;
+		}
+		retry++;
+	}
+
+	dev_err(i2c_param->i2c_dev->dev, "TX FIFO full timeout (retry=%d)\n", retry);
+	return -1;
+}
+
+static int rtk_i2c_can_read_rx_data(struct rtk_i2c_hw_params *i2c_param, u8 block)
+{
+	int retry = 0;
+
+	while (retry < SOWFTWARE_MAX_RETRYTIMES) {
+		if (rtk_i2c_check_flag_state(i2c_param, BIT_RFNE)) {
+			return 1;
+		} else if (!block) {
+			return 0;
+		}
+
+		u32 raw_int = rtk_i2c_get_raw_interrupt(i2c_param);
+		if (raw_int & (I2C_BIT_TX_ABRT | I2C_BIT_RX_OVER | I2C_BIT_RX_UNDER)) {
+			dev_err(i2c_param->i2c_dev->dev,
+			       "RX error detected: RAW_INT=0x%08X (retry=%d)\n",
+			       raw_int, retry);
+			rtk_i2c_clear_all_interrupts(i2c_param);
+			return -1;
+		}
+
+		retry++;
+	}
+
+	dev_err(i2c_param->i2c_dev->dev, "RX FIFO empty timeout (retry=%d)\n", retry);
+	return -1;
+}
+
 static void rtk_i2c_master_send(
 	struct rtk_i2c_hw_params *i2c_param,
 	u8 *pbuf, u8  i2c_cmd,
@@ -17,17 +76,6 @@ static void rtk_i2c_master_send(
 				   * (pbuf) | (i2c_restart << 10) |
 				   (i2c_cmd << 8) | (i2c_stop << 9));
 }
-
-#if defined(RTK_I2C_PM_RUNTIME) && RTK_I2C_PM_RUNTIME
-void rtk_i2c_master_send_null_data(
-	struct rtk_i2c_hw_params *i2c_param,
-	u8 *pbuf, u8 i2c_cmd, u8 i2c_stop, u8 i2c_restart)
-{
-	rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD,
-				   * (pbuf) | (1 << 11) | (i2c_restart << 10) |
-				   (i2c_cmd << 8) | (i2c_stop << 9));
-}
-#endif //RTK_I2C_PM_RUNTIME
 
 static void rtk_i2c_set_slave_addr(
 	struct rtk_i2c_hw_params *i2c_param, u16 address)
@@ -133,14 +181,92 @@ static int rtk_i2c_wait_free_bus(struct rtk_i2c_dev *i2c_dev)
 	return -EBUSY;
 }
 
+/* Switch to the next message. */
+static int rtk_i2c_restart_switch_flow(struct rtk_i2c_dev *i2c_dev)
+{
+	struct i2c_management_adapter *manage = &i2c_dev->i2c_manage;
+	int last_idx = manage->current_msg_id - 1;
+	int curr_idx = manage->current_msg_id;
+	struct i2c_msg *last_msg, *curr_msg;
+	bool last_is_read, curr_is_read;
+	bool dir_changed, addr_changed;
+
+	if (last_idx < 0 || curr_idx >= manage->msg_count) {
+		dev_err(i2c_dev->dev, "Invalid msg index: last=%d, curr=%d, count=%d\n",
+				last_idx, curr_idx, manage->msg_count);
+		return -EINVAL;
+	}
+
+	last_msg = &manage->msgs[last_idx];
+	curr_msg = &manage->msgs[curr_idx];
+
+	last_is_read = I2C_MSG_IS_READ(last_msg);
+	curr_is_read = I2C_MSG_IS_READ(curr_msg);
+
+	dir_changed = (last_is_read != curr_is_read);
+	addr_changed = (last_msg->addr != curr_msg->addr);
+
+	if (addr_changed) {
+		dev_err(i2c_dev->dev, "ERROR: Address change in RESTART is not supported\n");
+		return -EINVAL;
+	}
+
+	dev_dbg(i2c_dev->dev,
+		"Restart: msg[%d] 0x%02x %s%d -> msg[%d] 0x%02x %s%d (dir:%s addr:%s)\n",
+		last_idx, last_msg->addr, last_is_read ? "R" : "W", last_msg->len,
+		curr_idx, curr_msg->addr, curr_is_read ? "R" : "W", curr_msg->len,
+		dir_changed ? "changed" : "same", addr_changed ? "changed" : "same");
+
+	if (addr_changed) {
+		dev_err(i2c_dev->dev, "WARNING: address changed.");
+	}
+
+	if (I2C_MSG_IS_WRITE(last_msg) && I2C_MSG_IS_WRITE(curr_msg)) {
+		dev_dbg(i2c_dev->dev, "Case 1: W→W (same direction)\n");
+		manage->tx_info.data_len = curr_msg->len;
+		manage->tx_info.p_data_buf = curr_msg->buf;
+	} else if (I2C_MSG_IS_READ(last_msg) && I2C_MSG_IS_READ(curr_msg)) {
+		dev_dbg(i2c_dev->dev, "Case 2: R→R (same direction)\n");
+		manage->rx_info.data_len = curr_msg->len;
+		manage->rx_info.p_data_buf = curr_msg->buf;
+		if (manage->operation_type == I2C_INTR_TYPE) {
+			rtk_i2c_receive_int_master(i2c_dev);
+		}
+	} else if (I2C_MSG_IS_WRITE(last_msg) && I2C_MSG_IS_READ(curr_msg)) {
+		dev_dbg(i2c_dev->dev, "Case 3: W→R (direction changed)\n");
+		manage->rx_info.data_len = curr_msg->len;
+		manage->rx_info.p_data_buf = curr_msg->buf;
+
+		/* Wait for slave hardware read/write flip. */
+		udelay(50);
+
+		if (manage->operation_type == I2C_INTR_TYPE) {
+			rtk_i2c_interrupt_config(&i2c_dev->i2c_param, (I2C_BIT_M_TX_ABRT | I2C_BIT_M_TX_EMPTY | I2C_BIT_M_TX_OVER), DISABLE);
+			rtk_i2c_receive_int_master(i2c_dev);
+		}
+	} else {  // I2C_MSG_IS_READ(last_msg) && I2C_MSG_IS_WRITE(curr_msg)
+		dev_dbg(i2c_dev->dev, "Case 4: R→W (direction changed)\n");
+		manage->tx_info.data_len = curr_msg->len;
+		manage->tx_info.p_data_buf = curr_msg->buf;
+		if (manage->operation_type == I2C_INTR_TYPE) {
+			rtk_i2c_interrupt_config(&i2c_dev->i2c_param, (I2C_BIT_M_RX_FULL | I2C_BIT_M_RX_OVER | I2C_BIT_M_RX_UNDER), DISABLE);
+			rtk_i2c_interrupt_config(&i2c_dev->i2c_param, (I2C_BIT_M_TX_ABRT | I2C_BIT_M_TX_EMPTY | I2C_BIT_M_TX_OVER), ENABLE);
+		}
+	}
+
+	return 0;
+}
+
 void rtk_i2c_isr_master_handle_tx_empty(struct rtk_i2c_dev *i2c_dev)
 {
+	struct i2c_management_adapter *manage = &i2c_dev->i2c_manage;
 	int retry = 0;
-	u8 i2c_stop = 0;
+	u8 i2c_stop = 0, i2c_restart = 0;;
 
 	/* To check I2C master TX data length. If all the data are transmitted,
 	mask all the interrupts and invoke the user callback */
-	if (!i2c_dev->i2c_manage.tx_info.data_len) {
+	if (!manage->tx_info.data_len) {
+		/* Stop Flow */
 		retry = 0;
 		while (0 == rtk_i2c_check_flag_state(&i2c_dev->i2c_param, BIT_TFE)) {
 			retry++;
@@ -152,67 +278,88 @@ void rtk_i2c_isr_master_handle_tx_empty(struct rtk_i2c_dev *i2c_dev)
 
 		/* I2C Disable TX Related Interrupts */
 		rtk_i2c_interrupt_config(&i2c_dev->i2c_param, (I2C_BIT_M_TX_ABRT | I2C_BIT_M_TX_EMPTY |
-								 I2C_BIT_M_TX_OVER), DISABLE);
+								I2C_BIT_M_TX_OVER), DISABLE);
 
 		/* Clear all I2C pending interrupts */
 		rtk_i2c_clear_all_interrupts(&i2c_dev->i2c_param);
 		/* Update I2C device status */
-		i2c_dev->i2c_manage.dev_status = I2C_STS_IDLE;
+		manage->dev_status = I2C_STS_IDLE;
 		complete(&i2c_dev->xfer_completion);
-	}
-
-	if (i2c_dev->i2c_manage.tx_info.data_len > 0) {
+		return;
+	} else if (manage->tx_info.data_len == 1) {
 		/* Update I2C device status */
-		i2c_dev->i2c_manage.dev_status = I2C_STS_TX_ING;
+		manage->dev_status = I2C_STS_TX_ING;
 
 		/* Check I2C TX FIFO status. If it's not full, one byte data will be written into it. */
 		if (rtk_i2c_check_flag_state(&i2c_dev->i2c_param, BIT_TFNF)) {
-			i2c_stop = I2C_STOP_DIS;
-			if ((i2c_dev->i2c_manage.tx_info.data_len == 1) &&
-				((i2c_dev->i2c_manage.i2c_extend & I2C_EXD_MTR_HOLD_BUS) == 0)) {
-				i2c_stop = I2C_STOP_EN;
+			if ((manage->current_msg_id + 1) == (manage->msg_count)) {
+				/* Stop Flow */
+				i2c_stop = 1;
+			} else {
+				/* Restart Flow */
+				i2c_restart = 1;
 			}
 
-			rtk_i2c_master_send(&i2c_dev->i2c_param, i2c_dev->i2c_manage.tx_info.p_data_buf,
-								I2C_WRITE_CMD, i2c_stop, 0);
+			rtk_i2c_master_send(&i2c_dev->i2c_param, manage->tx_info.p_data_buf,
+								I2C_WRITE_CMD, i2c_stop, i2c_restart);
 
-			i2c_dev->i2c_manage.tx_info.p_data_buf++;
-			i2c_dev->i2c_manage.tx_info.data_len--;
-
-			retry = 0;
-			while (!rtk_i2c_check_flag_state(&i2c_dev->i2c_param, BIT_TFE)) {
-				if (rtk_i2c_get_raw_interrupt(&i2c_dev->i2c_param) & I2C_BIT_TX_ABRT) {
-					return;
-				}
-				retry++;
-				if (retry > SOWFTWARE_MAX_RETRYTIMES) {
-					dev_err(i2c_dev->dev, "TX retry overflow\n");
-					return;
-				}
+			manage->current_msg_id++;
+			if (i2c_stop) {
+				/* End of message. */
+				manage->tx_info.p_data_buf++;
+				manage->tx_info.data_len--;
+			} else {
+				/* Switch to the next message. */
+				rtk_i2c_restart_switch_flow(i2c_dev);
 			}
+		}
+	} else {
+		/* Update I2C device status */
+		manage->dev_status = I2C_STS_TX_ING;
+
+		/* Check I2C TX FIFO status. If it's not full, one byte data will be written into it. */
+		if (rtk_i2c_check_flag_state(&i2c_dev->i2c_param, BIT_TFNF)) {
+			rtk_i2c_master_send(&i2c_dev->i2c_param, manage->tx_info.p_data_buf,
+								I2C_WRITE_CMD, 0, 0);
+
+			manage->tx_info.p_data_buf++;
+			manage->tx_info.data_len--;
+		}
+	}
+
+	retry = 0;
+	while (!rtk_i2c_check_flag_state(&i2c_dev->i2c_param, BIT_TFE)) {
+		if (rtk_i2c_get_raw_interrupt(&i2c_dev->i2c_param) & I2C_BIT_TX_ABRT) {
+			return;
+		}
+		retry++;
+		if (retry > SOWFTWARE_MAX_RETRYTIMES) {
+			dev_err(i2c_dev->dev, "TX retry overflow\n");
+			return;
 		}
 	}
 }
 
 void rtk_i2c_isr_master_handle_rx_full(struct rtk_i2c_dev *i2c_dev)
 {
-	u8 i2c_stop;
+	struct i2c_management_adapter *manage = &i2c_dev->i2c_manage;
+	u8 i2c_stop = 0, i2c_restart = 0;
 	int retry = 0;
 
 	/* Check if the receive transfer is not finished. If it is not, check if there
 	is data in the RX FIFO and move the data from RX FIFO to user data buffer*/
-	if (i2c_dev->i2c_manage.rx_info.data_len > 0) {
+	if (manage->rx_info.data_len > 0) {
 
 		/* Update I2C device status */
-		i2c_dev->i2c_manage.dev_status = I2C_STS_RX_ING;
+		manage->dev_status = I2C_STS_RX_ING;
 
 		while (1) {
 			if (rtk_i2c_check_flag_state(&i2c_dev->i2c_param, (BIT_RFNE | BIT_RFF))) {
 
-				*(i2c_dev->i2c_manage.rx_info.p_data_buf) = rtk_i2c_receive_data(&i2c_dev->i2c_param);
+				*(manage->rx_info.p_data_buf) = rtk_i2c_receive_data(&i2c_dev->i2c_param);
 
-				i2c_dev->i2c_manage.rx_info.p_data_buf++;
-				i2c_dev->i2c_manage.rx_info.data_len--;
+				manage->rx_info.p_data_buf++;
+				manage->rx_info.data_len--;
 
 				if (rtk_i2c_readl(i2c_dev->base, IC_RXFLR) == 0) {
 					dev_dbg(i2c_dev->dev, "RX signal discontinuity\n");
@@ -238,255 +385,153 @@ void rtk_i2c_isr_master_handle_rx_full(struct rtk_i2c_dev *i2c_dev)
 	mask all the interrupts and invoke the user callback.
 	Otherwise, the master should send another Read Command to slave for
 	the next data byte receiving. */
-	if (!i2c_dev->i2c_manage.rx_info.data_len) {
-		/* I2C disable RX related interrupts */
-		rtk_i2c_interrupt_config(&i2c_dev->i2c_param, (I2C_BIT_M_RX_FULL | I2C_BIT_M_RX_OVER |
-								 I2C_BIT_M_RX_UNDER | I2C_BIT_M_TX_ABRT), DISABLE);
-		/* Clear all I2C pending interrupts */
-		rtk_i2c_clear_all_interrupts(&i2c_dev->i2c_param);
-		/* Update I2C device status */
-		i2c_dev->i2c_manage.dev_status = I2C_STS_IDLE;
+	if (!manage->rx_info.data_len) {
+		manage->current_msg_id++; // current msg done, next.
+		if (manage->current_msg_id < (manage->msg_count)) {
+			/* Restart Flow */
+			rtk_i2c_restart_switch_flow(i2c_dev);
+		} else {
+			/* Stop Flow */
+			/* I2C disable RX related interrupts */
+			rtk_i2c_interrupt_config(&i2c_dev->i2c_param, (I2C_BIT_M_RX_FULL | I2C_BIT_M_RX_OVER |
+									I2C_BIT_M_RX_UNDER | I2C_BIT_M_TX_ABRT), DISABLE);
+			/* Clear all I2C pending interrupts */
+			rtk_i2c_clear_all_interrupts(&i2c_dev->i2c_param);
+			/* Update I2C device status */
+			manage->dev_status = I2C_STS_IDLE;
+
+			if ((manage->msg_count > 1) && I2C_MSG_IS_WRITE(&manage->msgs[0])) {
+				dev_dbg(i2c_dev->dev, "First message is TX, signaling completion\n");
+				complete(&i2c_dev->xfer_completion);
+			}
+		}
 	} else {
 		/* If TX FIFO is not full, another read command is written into it. */
 		if (rtk_i2c_check_flag_state(&i2c_dev->i2c_param, BIT_TFNF)) {
-			if (i2c_dev->i2c_manage.master_rd_cmd_cnt > 0) {
-				i2c_stop = I2C_STOP_DIS;
-				if ((i2c_dev->i2c_manage.master_rd_cmd_cnt == 1) && ((i2c_dev->i2c_manage.i2c_extend & I2C_EXD_MTR_HOLD_BUS) == 0)) {
-					i2c_stop = I2C_STOP_EN;
+			if (manage->master_rd_cmd_cnt > 0) {
+				if ((manage->master_rd_cmd_cnt == 1) && ((manage->i2c_extend & I2C_EXD_MTR_HOLD_BUS) == 0)) {
+					if ((manage->current_msg_id + 1) == (manage->msg_count)) {
+						/* Stop Flow */
+						i2c_stop = 1;
+					} else {
+						/* Restart Flow */
+						i2c_restart = 1;
+					}
 				}
-				i2c_dev->i2c_manage.master_rd_cmd_cnt--;
+				manage->master_rd_cmd_cnt--;
 
-				rtk_i2c_master_send(&i2c_dev->i2c_param, i2c_dev->i2c_manage.rx_info.p_data_buf,
-									I2C_READ_CMD, i2c_stop, 0);
+				rtk_i2c_master_send(&i2c_dev->i2c_param, manage->rx_info.p_data_buf,
+									I2C_READ_CMD, i2c_stop, i2c_restart);
 			}
 		}
 	}
 }
 
-void rtk_i2c_master_write(
-	struct rtk_i2c_hw_params *i2c_param, u8 *pbuf, u8 len)
+int rtk_i2c_master_write(
+	struct rtk_i2c_hw_params *i2c_param, u8 *pbuf, int len)
 {
-	u8 cnt = 0;
-	int retry = 0;
+	struct i2c_management_adapter *manage = &i2c_param->i2c_dev->i2c_manage;
+	int cnt = 0;
 
 	/* Write in the DR register the data to be sent */
 	for (cnt = 0; cnt < len; cnt++) {
-		retry = 0;
-		while ((rtk_i2c_check_flag_state(i2c_param, BIT_TFNF)) == 0) {
-			retry++;
-			if (retry > SOWFTWARE_MAX_RETRYTIMES) {
-				dev_err(i2c_param->i2c_dev->dev, "Write retry overflow\n");
-				return;
-			}
+		if (rtk_i2c_can_send_tx_cmd(i2c_param, 1) < 0) {
+			dev_err(i2c_param->i2c_dev->dev, "Write break retry overflow\n");
+			return cnt;
 		}
 
 		if (cnt >= len - 1) {
-			/* Generate stop signal*/
-			rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, (*pbuf++) | (1 << 9));
+			if ((manage->current_msg_id + 1) == manage->msg_count) {
+				/* Generate stop signal*/
+				rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, (*pbuf++) | I2C_BIT_CMD_STOP);
+			} else {
+				/* Generate restart signal*/
+				rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, (*pbuf++) | I2C_BIT_CMD_RESTART);
+			}
 		} else {
 			rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, (*pbuf++));
-		}
-	}
-
-	retry = 0;
-	while ((rtk_i2c_check_flag_state(i2c_param, BIT_TFE)) == 0) {
-		retry++;
-		if (retry > SOWFTWARE_MAX_RETRYTIMES) {
-			dev_err(i2c_param->i2c_dev->dev, "Write retry overflow\n");
-			return;
-		}
-	}
-}
-
-u8 rtk_i2c_master_write_brk(
-	struct rtk_i2c_hw_params *i2c_param, u8 *pbuf, u8 len)
-{
-	u8 cnt = 0;
-	int retry = 0;
-
-	/* Write in the DR register the data to be sent */
-	for (cnt = 0; cnt < len; cnt++) {
-		retry = 0;
-		while ((rtk_i2c_check_flag_state(i2c_param, BIT_TFNF)) == 0) {
-			retry++;
-			if (retry > SOWFTWARE_MAX_RETRYTIMES) {
-				dev_err(i2c_param->i2c_dev->dev, "Write break retry overflow\n");
-				return 0;
-			}
-		}
-
-		if (cnt >= len - 1) {
-			/* Generate stop signal*/
-			rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, (*pbuf++) | (1 << 9));
-		} else {
-			rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, (*pbuf++));
-		}
-
-		retry = 0;
-		while ((rtk_i2c_check_flag_state(i2c_param, BIT_TFE)) == 0) {
-			if (rtk_i2c_get_raw_interrupt(i2c_param) & I2C_BIT_TX_ABRT) {
-				rtk_i2c_clear_all_interrupts(i2c_param);
-				return cnt;
-			}
-			retry++;
-			if (retry > SOWFTWARE_MAX_RETRYTIMES) {
-				dev_err(i2c_param->i2c_dev->dev, "Write break retry overflow\n");
-				return 0;
-			}
 		}
 	}
 
 	return cnt;
 }
 
-#if defined(RTK_I2C_PM_RUNTIME) && RTK_I2C_PM_RUNTIME
-void rtk_i2c_master_read_dw(
-	struct rtk_i2c_hw_params *i2c_param, u8 *pbuf, u8 len)
+int rtk_i2c_master_read(
+	struct rtk_i2c_hw_params *i2c_param, u8 *pbuf, int len)
 {
-	u8 cnt = 0;
-	int retry = 0;
+	struct i2c_management_adapter *manage = &i2c_param->i2c_dev->i2c_manage;
+	int cmd_cnt = 0;
+	int read_cnt = 0;
 
-	/* Read in the DR register the data to be received */
-	for (cnt = 0; cnt < len; cnt++) {
-		if (cnt >= len - 1) {
-			/* Generate stop singal */
-			rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, 0x0003 << 8);
-		} else {
-			rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, 0x0001 << 8);
+	while (read_cnt < len) {
+		while ((cmd_cnt < len) && rtk_i2c_can_send_tx_cmd(i2c_param, 0)) {
+			if (cmd_cnt == (len - 1)) {
+				if ((manage->current_msg_id + 1) == manage->msg_count) {
+					/* Generate stop signal*/
+					rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, I2C_BIT_CMD_RW | I2C_BIT_CMD_STOP);
+				} else {
+					/* Generate restart signal*/
+					rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, I2C_BIT_CMD_RW | I2C_BIT_CMD_RESTART);
+				}
+			} else {
+				rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, I2C_BIT_CMD_RW);
+			}
+			cmd_cnt++;
 		}
 
-		retry = 0;
-		/* Read data */
-		if (cnt > 0) {
-			/* Wait for I2C_FLAG_RFNE flag */
-			while ((rtk_i2c_check_flag_state(i2c_param, BIT_RFNE)) == 0) {
-				retry++;
-				if (retry > SOWFTWARE_MAX_RETRYTIMES) {
-					dev_err(i2c_param->i2c_dev->dev, "Read retry overflow\n");
-					return;
-				}
-			}
+		while((read_cnt < len) && (rtk_i2c_can_read_rx_data(i2c_param, 0))) {
 			*pbuf++ = (u8) rtk_i2c_readl(i2c_param->i2c_dev->base, IC_DATA_CMD);
+			read_cnt++;
+		}
+
+		if ((cmd_cnt == len) && (read_cnt < len) && (rtk_i2c_can_read_rx_data(i2c_param, 1) < 0)) {
+			break;
 		}
 	}
 
-	retry = 0;
-	/* Recv last data and NACK */
-	while ((rtk_i2c_check_flag_state(i2c_param, BIT_RFNE)) == 0) {
-		retry++;
-		if (retry > SOWFTWARE_MAX_RETRYTIMES) {
-			dev_err(i2c_param->i2c_dev->dev, "Read retry overflow\n");
-			return;
-		}
-	}
-
-	*pbuf++ = (u8) rtk_i2c_readl(i2c_param->i2c_dev->base, IC_DATA_CMD);
-}
-#endif // defined(RTK_I2C_PM_RUNTIME) && RTK_I2C_PM_RUNTIME
-
-u8 rtk_i2c_master_read(
-	struct rtk_i2c_hw_params *i2c_param, u8 *pbuf, u8 len)
-{
-	u8 cnt = 0;
-	int retry = 0;
-
-	/* Read in the DR register the data to be received */
-	for (cnt = 0; cnt < len; cnt++) {
-		if (cnt >= len - 1) {
-			/* Generate stop singal */
-			rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, 0x0003 << 8);
-		} else {
-			rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, 0x0001 << 8);
-		}
-
-		/* Wait for I2C_FLAG_RFNE flag */
-		while ((rtk_i2c_check_flag_state(i2c_param, BIT_RFNE)) == 0) {
-			if (rtk_i2c_get_raw_interrupt(i2c_param) & I2C_BIT_TX_ABRT) {
-				rtk_i2c_clear_all_interrupts(i2c_param);
-				return cnt;
-			}
-			retry++;
-			if (retry > SOWFTWARE_MAX_RETRYTIMES) {
-				dev_err(i2c_param->i2c_dev->dev, "Read retry overflow\n");
-				return 0;
-			}
-		}
-		*pbuf++ = (u8) rtk_i2c_readl(i2c_param->i2c_dev->base, IC_DATA_CMD);
-	}
-
-	return cnt;
-}
-
-void rtk_i2c_master_repeat_read(
-	struct rtk_i2c_hw_params *i2c_param,
-	u8 *p_write_buf, u8 write_len,
-	u8 *p_read_buf, u8 read_len)
-{
-
-	u8 cnt = 0;
-	int retry = 0;
-
-	/* Write in the DR register the data to be sent */
-	for (cnt = 0; cnt < write_len; cnt++) {
-		while (!(rtk_i2c_check_flag_state(i2c_param, BIT_TFNF))) {
-			retry++;
-			if (retry > SOWFTWARE_MAX_RETRYTIMES) {
-				dev_err(i2c_param->i2c_dev->dev, "Repeat read retry overflow\n");
-				return;
-			}
-		}
-		retry = 0;
-
-		if (cnt >= write_len - 1) {
-			/* Generate restart signal*/
-			rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, (*p_write_buf++) | (1 << 10));
-		} else {
-			rtk_i2c_writel(i2c_param->i2c_dev->base, IC_DATA_CMD, (*p_write_buf++));
-		}
-	}
-
-	retry = 0;
-	/* Wait I2C TX FIFO not full*/
-	while ((rtk_i2c_check_flag_state(i2c_param, BIT_TFNF)) == 0) {
-		retry++;
-		if (retry > SOWFTWARE_MAX_RETRYTIMES) {
-			dev_err(i2c_param->i2c_dev->dev, "Repeat read retry overflow\n");
-			return;
-		}
-	}
-
-	rtk_i2c_master_read(i2c_param, p_read_buf, read_len);
+	return read_cnt;
 }
 
 static hal_status rtk_i2c_send_poll_master(
 	struct rtk_i2c_dev *i2c_dev)
 {
+	struct i2c_management_adapter *manage = &i2c_dev->i2c_manage;
 	u32 data_send;
-	int retry = 0;
 
 	/* Send data till the TX buffer data length is zero */
-	i2c_dev->i2c_manage.dev_status = I2C_STS_TX_ING;
+	manage->dev_status = I2C_STS_TX_ING;
 
 REOPERATION:
-	data_send = rtk_i2c_master_write_brk(&i2c_dev->i2c_param, i2c_dev->i2c_manage.tx_info.p_data_buf,
-										 i2c_dev->i2c_manage.tx_info.data_len);
+	data_send = rtk_i2c_master_write(&i2c_dev->i2c_param, manage->tx_info.p_data_buf,
+										 manage->tx_info.data_len);
 	if (0 == data_send) {
-		retry++;
-		if (retry > SOWFTWARE_MAX_RETRYTIMES) {
-			dev_err(i2c_dev->dev, "Send retry overflow\n");
-			return HAL_TIMEOUT;
-		}
 		goto REOPERATION;
-	} else if (data_send < i2c_dev->i2c_manage.tx_info.data_len) {
+	} else if (data_send < manage->tx_info.data_len) {
 		dev_dbg(i2c_dev->dev, "Send %d data of %d abort: 0x%08X\n",
-				data_send, i2c_dev->i2c_manage.tx_info.data_len,
+				data_send, manage->tx_info.data_len,
 				rtk_i2c_readl(i2c_dev->base, IC_TX_ABRT_SOURCE));
 		rtk_i2c_clear_all_interrupts(&i2c_dev->i2c_param);
-		i2c_dev->i2c_manage.dev_status = I2C_STS_ERROR;
+		manage->dev_status = I2C_STS_ERROR;
 		return HAL_ERR_UNKNOWN;
+	} else if (data_send == manage->tx_info.data_len){
+		manage->current_msg_id++;
+		if (manage->current_msg_id < manage->msg_count) {
+			rtk_i2c_restart_switch_flow(i2c_dev);
+			if (I2C_MSG_IS_READ(&manage->msgs[manage->current_msg_id])) {
+				rtk_i2c_receive_poll_master(i2c_dev);
+			} else {
+				goto REOPERATION;
+			}
+		}
+	} else {
+		dev_err(i2c_dev->dev, "Send bytes cannot be larger than total.\n");
 	}
 
-	i2c_dev->i2c_manage.dev_status = I2C_STS_IDLE;
+	manage->dev_status = I2C_STS_IDLE;
+	if ((manage->current_msg_id + 1) == manage->msg_count) {
+		complete(&i2c_dev->xfer_completion);
+	}
+
 	return HAL_OK;
 }
 
@@ -494,15 +539,16 @@ static hal_status
 rtk_i2c_receive_poll_master(
 	struct rtk_i2c_dev *i2c_dev)
 {
+	struct i2c_management_adapter *manage = &i2c_dev->i2c_manage;
 	u32 data_recv;
 	int retry = 0;
 
 	/* Send data till the TX buffer data length is zero */
-	i2c_dev->i2c_manage.dev_status = I2C_STS_RX_ING;
+	manage->dev_status = I2C_STS_RX_ING;
 
 REOPERATION:
-	data_recv = rtk_i2c_master_read(&i2c_dev->i2c_param, i2c_dev->i2c_manage.rx_info.p_data_buf,
-									i2c_dev->i2c_manage.rx_info.data_len);
+	data_recv = rtk_i2c_master_read(&i2c_dev->i2c_param, manage->rx_info.p_data_buf, manage->rx_info.data_len);
+
 	if (0 == data_recv) {
 		retry++;
 		if (retry > SOWFTWARE_MAX_RETRYTIMES) {
@@ -510,13 +556,30 @@ REOPERATION:
 			return HAL_TIMEOUT;
 		}
 		goto REOPERATION;
-	}
-	if (data_recv < i2c_dev->i2c_manage.tx_info.data_len) {
-		dev_err(i2c_dev->dev, "Send %d data of %d abort\n", data_recv, i2c_dev->i2c_manage.rx_info.data_len);
-		i2c_dev->i2c_manage.dev_status = I2C_STS_ERROR;
+	} else if (data_recv < manage->rx_info.data_len) {
+		dev_err(i2c_dev->dev, "Send %d data of %d abort\n", data_recv, manage->rx_info.data_len);
+		manage->dev_status = I2C_STS_ERROR;
 		return HAL_ERR_HW;
+	} else if (data_recv == manage->rx_info.data_len) {
+		manage->current_msg_id++;
+		if (manage->current_msg_id < manage->msg_count) {
+			rtk_i2c_restart_switch_flow(i2c_dev);
+			if (I2C_MSG_IS_READ(&manage->msgs[manage->current_msg_id])) {
+				goto REOPERATION;
+			} else {
+				rtk_i2c_send_poll_master(i2c_dev);
+			}
+		}
+	} else {
+		dev_err(i2c_dev->dev, "Receive bytes cannot be larger than total.\n");
 	}
-	i2c_dev->i2c_manage.dev_status = I2C_STS_IDLE;
+
+	manage->dev_status = I2C_STS_IDLE;
+
+	if (((manage->current_msg_id + 1) == manage->msg_count) &&
+		  ((manage->msg_count > 1) && I2C_MSG_IS_WRITE(&manage->msgs[0]))) {
+		complete(&i2c_dev->xfer_completion);
+	}
 
 	return HAL_OK;
 }
@@ -524,7 +587,7 @@ REOPERATION:
 static hal_status rtk_i2c_receive_int_master(
 	struct rtk_i2c_dev *i2c_dev)
 {
-	u8 i2c_stop = 0;
+	u8 i2c_stop = 0, i2c_restart = 0;
 
 	/* Calculate user time out parameters */
 	if (rtk_i2c_is_timeout(i2c_dev) == HAL_TIMEOUT) {
@@ -559,11 +622,13 @@ static hal_status rtk_i2c_receive_int_master(
 	//loop step 4 and step 5.
 	//so last slave data have no ack, this is permitted by the spec.
 	if (i2c_dev->i2c_manage.master_rd_cmd_cnt > 0) {
-		i2c_stop = I2C_STOP_DIS;
-
 		if ((i2c_dev->i2c_manage.master_rd_cmd_cnt == 1)
 			&& ((i2c_dev->i2c_manage.i2c_extend & I2C_EXD_MTR_HOLD_BUS) == 0)) {
-			i2c_stop = I2C_STOP_EN;
+			if ((i2c_dev->i2c_manage.current_msg_id + 1) == i2c_dev->i2c_manage.msg_count) {
+				i2c_stop = 1;
+			} else {
+				i2c_restart = 1;
+			}
 		}
 
 		if (i2c_dev->i2c_manage.master_rd_cmd_cnt > 0) {
@@ -571,7 +636,7 @@ static hal_status rtk_i2c_receive_int_master(
 		}
 
 		rtk_i2c_master_send(&i2c_dev->i2c_param, i2c_dev->i2c_manage.rx_info.p_data_buf,
-							I2C_READ_CMD, i2c_stop, 0);
+							I2C_READ_CMD, i2c_stop, i2c_restart);
 	}
 
 	return HAL_OK;
@@ -787,7 +852,7 @@ static int rtk_i2c_xfer(struct i2c_adapter *i2c_adap,
 						struct i2c_msg msgs[], int num)
 {
 	struct rtk_i2c_dev *i2c_dev = i2c_get_adapdata(i2c_adap);
-	int ret, msg_id;
+	int ret;
 
 	/* Wait for slave hardware read/write flip. */
 	udelay(50);
@@ -804,28 +869,30 @@ static int rtk_i2c_xfer(struct i2c_adapter *i2c_adap,
 		goto pm_free;
 	}
 
+	i2c_dev->i2c_manage.msgs = msgs;
+	i2c_dev->i2c_manage.msg_count = num;
+	i2c_dev->i2c_manage.current_msg_id = 0;
+
 	/* Start transfer I2C msgs. */
-	for (msg_id = 0; msg_id < num; msg_id++) {
-		i2c_dev->i2c_manage.timeout = i2c_adap->timeout * 1000000;
-		rtk_gtimer_change_period(i2c_dev->i2c_manage.timer_index, i2c_adap->timeout * 1000000);
-		rtk_gtimer_int_config(i2c_dev->i2c_manage.timer_index, 1);
-		rtk_gtimer_start(i2c_dev->i2c_manage.timer_index, 1);
+	i2c_dev->i2c_manage.timeout = i2c_adap->timeout * 1000000;
+	rtk_gtimer_change_period(i2c_dev->i2c_manage.timer_index, i2c_adap->timeout * 1000000);
+	rtk_gtimer_int_config(i2c_dev->i2c_manage.timer_index, 1);
+	rtk_gtimer_start(i2c_dev->i2c_manage.timer_index, 1);
 
-		/* Give HW I2C. */
-		rtk_i2c_xfer_msg(i2c_dev, &msgs[msg_id]);
+	/* Give HW I2C. */
+	rtk_i2c_xfer_msg(i2c_dev, &msgs[0]);
 
-		if (i2c_dev->i2c_manage.dev_status == I2C_STS_TIMEOUT) {
-			rtk_gtimer_start(i2c_dev->i2c_manage.timer_index, 0);
-			i2c_dev->i2c_manage.dev_status = I2C_STS_IDLE;
-			rtk_i2c_flow_deinit(i2c_dev);
-			dev_err(i2c_dev->dev, "Wait slave 0x%04X timeout\n", msgs[msg_id].addr);
-			return -ETIMEDOUT;
-		} else if (i2c_dev->i2c_manage.dev_status == I2C_STS_ERROR) {
-			dev_err(i2c_dev->dev, "Some error happened when contacting slave 0x%04X\n", msgs[msg_id].addr);
-			ret = -ETIMEDOUT;
-		}
+	if (i2c_dev->i2c_manage.dev_status == I2C_STS_TIMEOUT) {
 		rtk_gtimer_start(i2c_dev->i2c_manage.timer_index, 0);
+		i2c_dev->i2c_manage.dev_status = I2C_STS_IDLE;
+		rtk_i2c_flow_deinit(i2c_dev);
+		dev_err(i2c_dev->dev, "Wait slave 0x%04X timeout\n", msgs[0].addr);
+		return -ETIMEDOUT;
+	} else if (i2c_dev->i2c_manage.dev_status == I2C_STS_ERROR) {
+		dev_err(i2c_dev->dev, "Some error happened when contacting slave 0x%04X\n", msgs[0].addr);
+		ret = -ETIMEDOUT;
 	}
+	rtk_gtimer_start(i2c_dev->i2c_manage.timer_index, 0);
 
 pm_free:
 #if defined(RTK_I2C_PM_RUNTIME) && RTK_I2C_PM_RUNTIME
