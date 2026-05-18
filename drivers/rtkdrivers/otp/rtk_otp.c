@@ -547,7 +547,7 @@ static int rtk_otp_logical_write(void *context,
 		u8 newdata[RTK_OTP_LPGPKT_SIZE];
 		u8 wordstart = 0, wordend = 0, wordoffset;
 		u8 wcnt = (remain + offset > RTK_OTP_LPGPKT_SIZE) ? RTK_OTP_LPGPKT_SIZE : (remain + offset);
-		ret = rtk_otp_logical_read(rtk_otp, base, newdata, bytes);
+		ret = rtk_otp_logical_read(rtk_otp, base, newdata, RTK_OTP_LPGPKT_SIZE);
 
 		if (ret < 0) {
 			dev_err(rtk_otp->dev, "Logical map read error when write 0x%08X\n", base);
