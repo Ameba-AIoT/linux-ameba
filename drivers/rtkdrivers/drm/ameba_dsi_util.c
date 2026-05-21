@@ -239,11 +239,17 @@ void ameba_dsi_do_init(void __iomem *MIPIx, MIPI_InitTypeDef *MIPI_InitStruct, u
 	MIPI_DSI_init(MIPIx, MIPI_InitStruct);
 
 	/*
-	 * From observing the operation of the GH panel,
-	 * if there is no 2ms delay here,
-	 * the initial sequence's first frame might not transmit correctly.
+	* D-PHY voltage settling delay after MIPI reset.
+	*
+	* Depends on board-level factors: external circuit, capacitance,
+	* temperature, and PCB routing. Typical range: 1 ~ 5 ms.
+	* MUST be tuned per hardware design; a larger value is always safer.
+	*
+	* Alternatively, this delay can be configured per panel by inserting
+	* {REGFLAG_DELAY, 5, {}} as the first entry of the panel's
+	* LCM_setting_table_t, which achieves the same effect.
 	*/
-	mdelay(2);
+	mdelay(5);
 
 	while (1) {
 		if (*tx_done) {
