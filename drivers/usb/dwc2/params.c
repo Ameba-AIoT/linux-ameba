@@ -322,7 +322,11 @@ static void dwc2_set_realtek_hsotg_params(struct dwc2_hsotg *hsotg)
 	p->i2c_enable = false;
 	p->reload_ctl = false;
 	p->ahbcfg = GAHBCFG_HBSTLEN_INCR4 << GAHBCFG_HBSTLEN_SHIFT;
-	p->change_speed_quirk = true;
+	/* SoC has HS UTMI 16-bit PHY only, no separate FS PHY.
+	 * Hardware auto-adapts speed; change_speed_quirk causes race
+	 * conditions during FS/LS device enumeration (error -71).
+	 */
+	p->change_speed_quirk = false;
 	p->power_down = false;
 }
 
