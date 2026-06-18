@@ -54,10 +54,13 @@ static int realtek_gpio_get(struct gpio_chip *chip, unsigned offset)
 	unsigned long flags;
 	int ret;
 
-
 	spin_lock_irqsave(&bank->lock, flags);
 
-	ret = !!(readl(bank->reg_base + GPIO_EXT_PORT) & BIT(offset));
+	/* Read GPIO_DR when pin is output because reading GPIO_EXT_PORT is always 0 for 1.8V pins */
+	if (readl(bank->reg_base + GPIO_DDR) & BIT(offset))
+		ret = !!(readl(bank->reg_base + GPIO_DR) & BIT(offset));
+	else
+		ret = !!(readl(bank->reg_base + GPIO_EXT_PORT) & BIT(offset));
 
 	spin_unlock_irqrestore(&bank->lock, flags);
 
