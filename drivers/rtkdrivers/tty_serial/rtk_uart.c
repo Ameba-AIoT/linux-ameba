@@ -494,25 +494,64 @@ static void rtk_uart_clear_flag(struct uart_port *port, u32 flag)
 }
 
 /*
- * Read all chars in RX FIFO and send them to core
- * do not process RX error, should add later
+ * Read all chars in RX FIFO and send them to core.
+ * RX line-status errors (overrun/break/parity/frame) are accounted and,
+ * per read_status_mask/ignore_status_mask, attached to or used to drop the
+ * offending byte.  Note the per-byte parity/frame/break status latches into
+ * LSR only a few UART clocks AFTER the RBR read that pops the byte -- it is
+ * NOT valid before the pop -- so the loop pops first and re-samples LSR
+ * afterwards.  See the settle handling in the loop below.
  */
 static void rtk_uart_do_rx(struct uart_port *port)
 {
 	u8 c = 0;
 	u32 lsr = 0;
-	u32 flag = TTY_NORMAL;
+	u32 flag;
 	int max_count = 32;
 
 	do {
+		flag = TTY_NORMAL;
 		lsr = rtk_uart_readl(port, LSR);
 
+		/*
+		 * Overrun is a FIFO-level condition (not tied to the byte we are
+		 * about to pop) and is valid on this pre-pop read, so handle it
+		 * up front.
+		 */
 		if (unlikely(lsr & RUART_BIT_OVR_ERR)) {
 			rtk_uart_clear_flag(port, RUART_BIT_RLSICF);
 
 			port->icount.overrun++;
 			tty_insert_flip_char(&port->state->port, 0, TTY_OVERRUN);
 		}
+
+		/*
+		 * DRDY is valid before the pop, so it alone drives loop control.
+		 */
+		if (!(lsr & RUART_BIT_DRDY)) {
+			break;
+		}
+
+		c = rtk_uart_readl(port, RBR_OR_UART_THR) & 0xff;
+		port->icount.rx++;
+
+		/*
+		 * The PAR_ERR/FRM_ERR/BREAK status of a byte latches into LSR
+		 * only a few UART-clock cycles AFTER the RBR read that pops it;
+		 * before the pop LSR still reflects the previous byte (or is
+		 * clear).  Sampling LSR before popping therefore under-flags the
+		 * byte (delivered as TTY_NORMAL, IGNPAR fails to drop it) while
+		 * the error surfaces on the next, empty iteration.  So pop first,
+		 * let the status settle, then re-sample LSR for THIS byte and
+		 * base flag / ignore-mask decisions on it.
+		 *
+		 * The settle wait is only needed when per-byte error checking is
+		 * active (e.g. INPCK set); skip it in 8N1 mode to avoid the
+		 * per-byte overhead.
+		 */
+		if (port->read_status_mask & (RUART_BIT_PAR_ERR | RUART_BIT_FRM_ERR | RUART_BIT_BREAK_INT))
+			udelay(1);
+		lsr = rtk_uart_readl(port, LSR);
 
 		if (unlikely((lsr & RUART_BIT_BREAK_INT))) {
 			port->icount.brk++;
@@ -545,12 +584,14 @@ static void rtk_uart_do_rx(struct uart_port *port)
 			flag = TTY_PARITY;
 		}
 
-		if (!(lsr & RUART_BIT_DRDY)) {
-			break;
-		}
-
-		c = rtk_uart_readl(port, RBR_OR_UART_THR) & 0xff;
-		port->icount.rx++;
+		/*
+		 * We definitely consumed a valid data byte (pre-pop DRDY was 1),
+		 * but the post-pop DRDY reflects whether MORE data is queued, not
+		 * this byte.  Force DRDY so the !CREAD case (ignore_status_mask
+		 * carries DRDY -> "drop everything") still drops the last byte
+		 * when the FIFO has just gone empty.
+		 */
+		lsr |= RUART_BIT_DRDY;
 
 		/*This is not console, so no need to handle sysrq.*/
 		//if (uart_handle_sysrq_char(port, c))
