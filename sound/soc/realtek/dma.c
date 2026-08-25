@@ -451,12 +451,28 @@ static int load_dma_period(struct snd_pcm_substream *substream, struct ameba_pcm
 		struct scatterlist sg_list[data->period_num];
 		sg_init_table(sg_list, data->period_num);
 
+		/*
+		 * For 6/8-channel the single DMA buffer is laid out per period as two
+		 * interleaved sub-blocks: [P*4ch (dma_id 0)][P*(N-4)ch (dma_id 1)].
+		 * So each DMA must:
+		 *   - start at its own sub-block offset within period 0
+		 *     (data->dma_addr_offset: 0 for dma_id 0, P*4*fw for dma_id 1), and
+		 *   - stride one FULL logical period between consecutive periods,
+		 *     reading only its own sub-block and skipping the other DMA's.
+		 * Using data->period_bytes (the per-DMA sub-block size) as the stride
+		 * and ignoring dma_addr_offset (the old code) is only correct for
+		 * 1/2/4-channel; for 6/8-channel it made dma_id 0 read dma_id 1's data
+		 * and made both DMAs start at the buffer base.
+		 * For 1/2/4-channel data->channels == runtime->channels and
+		 * dma_addr_offset == 0, so this reduces to base + period_bytes * i.
+		 */
+		dma_addr_t full_period = (dma_addr_t)data->period_bytes * runtime->channels / data->channels;
 		int i;
 		for (i = 0; i < data->period_num; i++) {
-			sg_dma_address(&sg_list[i]) = runtime->dma_addr + data->period_bytes * i;
+			sg_dma_address(&sg_list[i]) = runtime->dma_addr + data->dma_addr_offset + full_period * i;
 			sg_dma_len(&sg_list[i]) = data->period_bytes;
-			dma_info(1, component->dev,"addr:%d %d %d %x %x\n",
-					i, data->period_num, data->period_bytes, runtime->dma_addr, sg_list[i].dma_address);
+			dma_info(1, component->dev,"dma_id:%d addr:%d %d %d %x %x\n",
+					data->dma_id, i, data->period_num, data->period_bytes, runtime->dma_addr, sg_list[i].dma_address);
 		}
 
 		desc = dmaengine_prep_slave_sg(chan, sg_list, data->period_num, dir, flags);
@@ -779,9 +795,24 @@ static snd_pcm_uframes_t
 		offset_size = state.residue - runtime->dma_addr;
 	}
 
-	if (runtime->no_period_wakeup)
+	if (runtime->no_period_wakeup) {
+		if (IS_6_8_CHANNEL(runtime->channels)) {
+			/*
+			 * DMA0 only walks its own 4-ch sub-block (data_0->period_bytes)
+			 * inside each full logical period, then jumps over dma_id 1's
+			 * sub-block to the next period. Map its raw byte position back to a
+			 * whole-buffer frame position: whole periods advance by
+			 * runtime->period_size frames; the in-period remainder is scaled by
+			 * the 4-ch sub-block size so the pointer tracks real time linearly.
+			 */
+			unsigned int full_period = (unsigned int)data_0->period_bytes * runtime->channels / data_0->channels;
+			unsigned int period_idx = (unsigned int)offset_size / full_period;
+			unsigned int intra = (unsigned int)offset_size - period_idx * full_period;
+			return period_idx * runtime->period_size +
+				intra * runtime->period_size / (unsigned int)data_0->period_bytes;
+		}
 		return bytes_to_frames(substream->runtime, offset_size);
-	else
+	} else
 		return bytes_to_frames(substream->runtime, data_0->dma_addr_offset);
 }
 
