@@ -1,0 +1,226 @@
+# CONFIG_LOCALVERSION_AUTO is not set
+CONFIG_DEFAULT_HOSTNAME="rtl8730e"
+# CONFIG_CROSS_MEMORY_ATTACH is not set
+CONFIG_NO_HZ_IDLE=y
+CONFIG_HIGH_RES_TIMERS=y
+CONFIG_LOG_BUF_SHIFT=12
+# CONFIG_BLK_DEV_INITRD is not set
+# CONFIG_RD_BZIP2 is not set
+# CONFIG_RD_LZMA is not set
+# CONFIG_RD_XZ is not set
+# CONFIG_RD_LZO is not set
+# CONFIG_RD_LZ4 is not set
+# CONFIG_RD_ZSTD is not set
+CONFIG_CC_OPTIMIZE_FOR_SIZE=y
+# CONFIG_SYSFS_SYSCALL is not set
+CONFIG_EXPERT=y
+# CONFIG_IO_URING is not set
+# CONFIG_KCMP is not set
+# CONFIG_KALLSYMS is not set
+# CONFIG_ARM_PATCH_PHYS_VIRT is not set
+# Base must be 2MB-aligned (ARM PMD_SIZE) or the unaligned head is nomap'd (~1MB lost).
+# Must equal dts memory node, U-Boot TEXT_BASE/SDRAM_BASE, ATF NS_DRAM0_BASE.
+CONFIG_PHYS_OFFSET=0x60000000
+# CONFIG_ARCH_MULTIPLATFORM is not set
+CONFIG_ARCH_AMEBASMART=y
+CONFIG_SWP_EMULATE=y
+CONFIG_ARM_PSCI=y
+# Off: drops mach pm.c whose rtk_pm_init() takes an early external abort on
+# not-yet-calibrated PSRAM. Re-enable when PSRAM window / suspend is needed.
+# CONFIG_SUSPEND is not set
+# CONFIG_ARM_PATCH_IDIV is not set
+# CONFIG_ATAGS is not set
+CONFIG_XIP_KERNEL=y
+CONFIG_XIP_PHYS_ADDR=0x08300000
+# CONFIG_CPU_FREQ is not set
+# CONFIG_CPU_FREQ_GOV_USERSPACE is not set
+# Off: rootfs is cramfs XIP straight off MTD (no block-backed fs). Saved ~250K
+# RAM (mtdblock request_queue/mempools + /sys/block kernfs nodes).
+# CONFIG_BLOCK is not set
+# CONFIG_COREDUMP is not set
+# CONFIG_SWAP is not set
+# CONFIG_COMPACTION is not set
+# CONFIG_VM_EVENT_COUNTERS is not set
+# Plain SLUB + SLUB_DEBUG (keeps /proc/slabinfo for diagnosis). NOT SLUB_TINY:
+# it saved little and drops slabinfo. Memory reclaimed via BASE_SMALL below.
+CONFIG_SLUB_DEBUG=y
+# Shrink core kernel tables (pid map, futex/dcache hashes) on this 7MB board.
+CONFIG_BASE_SMALL=y
+CONFIG_MEMFD_CREATE=y
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+# tmpfs for /run,/var/volatile,/tmp (fstab); without these mount -t tmpfs
+# falls back to ramfs and rejects mode=/size=. Re-enabled (EXPERT trimmed them).
+CONFIG_SHMEM=y
+CONFIG_TMPFS=y
+# /proc/sys tree: mdev's hotplug registration writes /proc/sys/kernel/hotplug
+# and many tools read /proc/sys. Trimmed by CONFIG_EXPERT=y; re-enable.
+CONFIG_PROC_SYSCTL=y
+CONFIG_MTD=y
+# Off (implied by BLOCK=n); explicit so re-enabling BLOCK won't bring mtdblocks
+# back. cramfs reaches flash via CONFIG_CRAMFS_MTD.
+# CONFIG_MTD_BLOCK is not set
+CONFIG_MTD_ROM=y
+CONFIG_MTD_PHYSMAP=y
+CONFIG_MTD_PHYSMAP_OF=y
+# CONFIG_VT is not set
+# CONFIG_LEGACY_TIOCSTI is not set
+# CONFIG_DEVPORT is not set
+# CONFIG_I2C is not set
+# CONFIG_I2C_CHARDEV is not set
+# CONFIG_I2C_SLAVE is not set
+# CONFIG_SPI is not set
+# CONFIG_SPI_SLAVE is not set
+# CONFIG_HWMON is not set
+# Unused subsystems trimmed to shrink sysfs/slab footprint on this 7MB board
+# (thermal/input/HID/IIO/PWM each register kernfs nodes + inode/dentry).
+# CONFIG_THERMAL is not set
+# CONFIG_WATCHDOG is not set
+# CONFIG_INPUT is not set
+# CONFIG_HID is not set
+# CONFIG_USB_SUPPORT is not set
+# MMC + LEDS dropped (no SD/eMMC, no LEDs) to shrink sysfs footprint.
+# CONFIG_MMC is not set
+# CONFIG_NEW_LEDS is not set
+# CONFIG_RTC_CLASS is not set
+# CONFIG_ARM_ARCH_TIMER_EVTSTREAM is not set
+# CONFIG_IOMMU_SUPPORT is not set
+# CONFIG_IIO is not set
+# CONFIG_PWM is not set
+CONFIG_IPC_RTK_AMEBA=y
+# CONFIG_SPIC_RTK_AMEBA_RXI312 is not set
+CONFIG_MFD_RTK_AMEBA_TIMERS=y
+CONFIG_SERIAL_RTK_AMEBA=y
+CONFIG_SERIAL_RTK_AMEBA_CONSOLE=y
+CONFIG_SERIAL_RTK_AMEBA_GENERIC=y
+CONFIG_CRAMFS=y
+CONFIG_CRAMFS_MTD=y
+# Off (XIP rootfs mapped from NOR window; impossible with BLOCK=n anyway).
+# CONFIG_CRAMFS_BLOCKDEV is not set
+#
+# Wi-Fi (kernel side): fullmac whc_host_linux, cfg80211 only (MAC80211 off like va7/va8).
+# CFG80211 enabled explicitly; kernel/firmware wifi trees must stay in sync + KM4 WHC NP.
+CONFIG_NET=y
+CONFIG_UNIX=y
+CONFIG_PACKET=y
+CONFIG_INET=y
+CONFIG_WIRELESS=y
+CONFIG_CFG80211=y
+CONFIG_NETDEVICES=y
+CONFIG_WLAN=y
+CONFIG_WIFI_RTK_CFG80211_FULLMAC=y
+# Same-chip IPC transport (choice default; SDIO/SPI/USB are for external hosts).
+CONFIG_WHC_HCI_IPC=y
+# WPAoH: supplicant runs here with cfg80211 (sets a -D flag on the IPC path).
+CONFIG_WHC_WIFI_API_PATH=y
+# Generic-netlink command channel (adds driver/whc_host_netlink.o).
+CONFIG_WHC_CMD_PATH=y
+#
+# Trimmed vs va7/va8 defconfig: turn off NET-adjacent bits we don't want.
+# CONFIG_MAC80211 is not set
+# CONFIG_RFKILL is not set
+# CONFIG_IPV6 is not set
+# CONFIG_ETHERNET is not set
+# CONFIG_NETFILTER is not set
+# CONFIG_IP_MULTICAST is not set
+# CONFIG_INET_DIAG is not set
+# CONFIG_PACKET_DIAG is not set
+# CONFIG_UNIX_DIAG is not set
+# CONFIG_FW_LOADER_USER_HELPER is not set
+# Off: signed regdb drags in X.509/CRYPTO_SHA256; driver has its own regdomain
+# in whc_host_regd.c.
+# CONFIG_CFG80211_REQUIRE_SIGNED_REGDB is not set
+# CONFIG_CFG80211_USE_KERNEL_REGDB_KEYS is not set
+# Wi-Fi features left off for now; enable individually if needed.
+# CONFIG_NAN is not set
+# CONFIG_P2P is not set
+# CONFIG_MCC is not set
+# CONFIG_SUPPLICANT_SME is not set
+CONFIG_INIT_STACK_NONE=y
+CONFIG_CRYPTO=y
+CONFIG_CRYPTO_DRBG_MENU=y
+# CONFIG_DEBUG_BUGVERBOSE is not set
+CONFIG_FRAME_WARN=1024
+# CONFIG_FTRACE is not set
+CONFIG_DEBUG_LL=y
+CONFIG_EARLY_PRINTK=y
+
+# --- memory optimisations synced from linux_run_on_psram (2026-09-24) ---
+# Unused subsystems / debug surfaces dropped to maximise free memory.
+# CONFIG_VMAP_STACK is not set
+# CONFIG_SYSVIPC is not set
+# CONFIG_KEYS is not set
+# CONFIG_ASYMMETRIC_KEY_TYPE is not set
+# CONFIG_X509_CERTIFICATE_PARSER is not set
+# CONFIG_PKCS7_MESSAGE_PARSER is not set
+# CONFIG_SYSTEM_TRUSTED_KEYRING is not set
+# CONFIG_NLS is not set
+# CONFIG_CONFIGFS_FS is not set
+# CONFIG_MTD_UBI is not set
+# CONFIG_UBIFS_FS is not set
+# CONFIG_JFFS2_FS is not set
+# CONFIG_OVERLAY_FS is not set
+# CONFIG_SQUASHFS is not set
+# CONFIG_MSDOS_FS is not set
+# CONFIG_VFAT_FS is not set
+# CONFIG_FAT_FS is not set
+# CONFIG_BLK_DEV_LOOP is not set
+# CONFIG_MD is not set
+# CONFIG_BLK_DEV_DM is not set
+# CONFIG_SCSI is not set
+# CONFIG_ZSTD_COMPRESS is not set
+# CONFIG_ZSTD_DECOMPRESS is not set
+# CONFIG_XZ_DEC is not set
+# CONFIG_BPF is not set
+# CONFIG_BPF_SYSCALL is not set
+# CONFIG_ARM_GIC_V3_ITS is not set
+# CONFIG_ADC_RTK_AMEBA is not set
+# CONFIG_CAPTOUCH_RTK_AMEBA is not set
+# CONFIG_CPUFREQ_RTK_AMEBA is not set
+# CONFIG_DMAC_RTK_AMEBA is not set
+# CONFIG_DMADEVICES is not set
+# CONFIG_I2C_RTK_AMEBA is not set
+# CONFIG_I2C_SLAVE_RTK_AMEBA is not set
+# CONFIG_LEDC_RTK_WS28XXX is not set
+# CONFIG_MISC_RTK_AMEBA is not set
+# CONFIG_OTP_RTK_AMEBA is not set
+# CONFIG_PWM_RTK_AMEBA is not set
+# CONFIG_RTC_RTK_AMEBA is not set
+# CONFIG_MMC_RTK_AMEBA_SDIOH is not set
+# CONFIG_SPI_RTK_AMEBA is not set
+# CONFIG_SPI_MEM is not set
+# CONFIG_SPI_SPIDEV is not set
+# CONFIG_SPI_REALTEK_RXI312 is not set
+# CONFIG_MTD_SPI_NOR is not set
+# CONFIG_MTD_SPI_NAND is not set
+# CONFIG_THERMAL_RTK_AMEBA is not set
+# CONFIG_TOUCHSCREEN_RTK_AMEBA is not set
+# CONFIG_TOUCHSCREEN_CST328 is not set
+# CONFIG_WATCHDOG_RTK_AMEBA is not set
+# CONFIG_WATCHDOG_CORE is not set
+# CONFIG_AUDIO_PLL_RTK_AMEBA is not set
+# CONFIG_HW_RANDOM_RTK_AMEBA is not set
+# CONFIG_EXTCON is not set
+# CONFIG_INPUT_EVDEV is not set
+# CONFIG_SOUND is not set
+# CONFIG_SND is not set
+# CONFIG_SND_SOC_RTK_AMEBA is not set
+# CONFIG_DRM is not set
+# CONFIG_DRM_RTK_AMEBA is not set
+# CONFIG_DRM_DSI_RTK_AMEBA is not set
+# CONFIG_MEDIA_SUPPORT is not set
+# CONFIG_DVB_CORE is not set
+# CONFIG_RC_CORE is not set
+# CONFIG_IR_RTK_AMEBA is not set
+# CONFIG_USB is not set
+# CONFIG_USB_GADGET is not set
+# CONFIG_USB_RTK_AMEBA_USB20PHY is not set
+# CONFIG_BT is not set
+# CONFIG_BT_IOCTL_RTK_AMEBA is not set
+# CONFIG_SYSFS is not set
+# CONFIG_DEBUG_MISC is not set
+# CONFIG_PROC_PAGE_MONITOR is not set
+# CONFIG_PROC_MEM_ALWAYS_FORCE is not set
+# CONFIG_SYNC_FILE is not set
+# CONFIG_PM_AUTOSLEEP is not set
+# CONFIG_PM_WAKELOCKS is not set

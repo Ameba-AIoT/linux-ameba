@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+* Realtek DTS for SPI NOR flash
+*
+* Copyright (C) 2023, Realtek Corporation. All rights reserved.
+*/
+
+/ {
+	ocp {
+		spic: spi@44000000 {
+			compatible = "realtek,rxi312-nor";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			bus_num = <2>;
+			reg = <0x44000000 0x200>;
+			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+			spi-max-frequency = <100000000>;
+
+			flash0: flash@0 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "jedec,spi-nor";
+				spi-max-frequency = <100000000>;
+				reg = <0>;
+
+				partitions {
+					compatible = "fixed-partitions";
+					#address-cells = <1>;
+					#size-cells = <1>;
+
+					/* NOR 16MB+PSRAM 8MB: 0x082C0000+ is free for Linux (below is firmware).
+					 * Kernel 5.004MB (LOAD 0x08300000, 1MB-aligned + 4032B uImage-header pad); Rootfs 8MB at flash top. */
+					partition@0 {
+						label = "Device tree blob";
+						reg = <0x2C0000 0x8000>;
+						read-only;
+					};
+					partition@1 {
+						label = "Kernel image";
+						reg = <0x2FF000 0x501000>;
+						read-only;
+					};
+					partition@2 {
+						label = "Rootfs image";
+						reg = <0x800000 0x800000>;
+						read-only;
+					};
+					/* Userdata (jffs2) disabled during XIP bring-up (avoids a 2nd
+					 * writable MTD + jffs2 scan spam). Re-enable: partition@8 reg=<0x1E40000 0x1C0000>. */
+
+				};
+			};
+		};
+
+		/* XIP rootfs mtd-rom at NOR AXI window 0x08800000 (cramfs CRAMFS_MTD executes in place).
+		 * Keep in sync with "Rootfs image" above; size MUST be power-of-two (physmap-core rounds down). */
+		xip_rootfs: flash@8800000 {
+			compatible = "mtd-rom";
+			reg = <0x08800000 0x00800000>;
+			bank-width = <4>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partitions {
+				compatible = "fixed-partitions";
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				xiprootfs: partition@0 {
+					label = "xip_rootfs";
+					reg = <0x0 0x00800000>;
+					read-only;
+				};
+			};
+		};
+	};
+
+	chosen {
+		/* root=mtd:xip_rootfs cramfs; no init= (busybox init at /sbin/init).
+		 * coherent_pool=16K shrinks the default 256K DMA pool (near-unused on this 6MB board). */
+		bootargs = "console=ttyS0,1500000 earlycon psci=enable root=mtd:xip_rootfs rootfstype=cramfs coherent_pool=16K";
+		stdout-path = &loguart;
+	};
+
+};

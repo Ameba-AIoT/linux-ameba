@@ -705,7 +705,9 @@ config ARM_THUMBEE
 
 config ARM_VIRT_EXT
 	bool
-	default y if CPU_V7
+	# !XIP_KERNEL: __hyp_stub_install writes .data via pc-relative addressing
+	# pre-MMU, which breaks when XIP code and data are at unrelated addresses.
+	default y if CPU_V7 && !XIP_KERNEL
 	help
 	  Enable the kernel to make use of the ARM Virtualization
 	  Extensions to install hypervisors without run-time firmware

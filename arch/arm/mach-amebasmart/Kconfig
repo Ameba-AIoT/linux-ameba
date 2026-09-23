@@ -16,7 +16,7 @@ config SOC_CPU_ARMA32
 
 menuconfig ARCH_AMEBASMART
 	bool "AmebaSmart ARM platform"
-	select CPU_V8
+	select CPU_V7
 	select ARM_GIC
 	select ARM_GIC_V3
 	select HAVE_ARM_ARCH_TIMER
@@ -30,7 +30,6 @@ menuconfig ARCH_AMEBASMART
 	select HW_HAS_USB
 	select HAVE_ARM_SCU
 	select HAVE_SMP
-	select SMP
 	select VFP
 	select NEON
 	select USE_OF

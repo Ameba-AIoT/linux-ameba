@@ -7,6 +7,8 @@ dtb-$(CONFIG_ARCH_AMEBASMART) += \
 	rtl8730eam-va6-generic.dtb \
 	rtl8730eam-va6-full.dtb \
 	rtl8730eam-va6-recovery.dtb \
+	rtl8730eah-vd3-generic.dtb \
+	rtl8730eah-vd3-full.dtb \
 	rtl8730elm-va7-generic.dtb \
 	rtl8730elm-va7-full.dtb \
 	rtl8730elm-va7-recovery.dtb \
